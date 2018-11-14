@@ -1,6 +1,14 @@
 # Manala
 
-## Requirements
+## Install / Update
+
+```
+curl -sL https://github.com/nervo/manala/raw/master/install.sh | sudo sh
+```
+
+## Build
+
+Requirements
 
 * Go 1.11+
 
