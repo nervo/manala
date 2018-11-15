@@ -36,16 +36,21 @@ func Execute(version string) {
 }
 
 func init() {
+	cobra.OnInitialize(initConfig)
 
-	// Find home directory.
-	home, err := homedir.Dir()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	rootCmd.PersistentFlags().StringP("cache-dir", "d", "", "cache dir (default $HOME/.manala/cache)")
 
-	config.SetDefault("cache-dir", path.Join(home, ".manala", "cache"))
-
-	rootCmd.PersistentFlags().StringP("cache-dir", "d", config.GetString("cache-dir"), "cache dir")
 	config.BindPFlag("cache-dir", rootCmd.PersistentFlags().Lookup("cache-dir"))
+}
+
+func initConfig() {
+	// Cache dir
+	if config.GetString("cache-dir") == "" {
+		home, err := homedir.Dir()
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		config.Set("cache-dir", path.Join(home, ".manala", "cache"))
+	}
 }
