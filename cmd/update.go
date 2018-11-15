@@ -2,11 +2,13 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/mostafah/fsync"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/src-d/go-git.v4"
 	"os"
 	"path"
+	"path/filepath"
 )
 
 // updateCmd represents the update command
@@ -80,16 +82,19 @@ Example: manala update /foo/bar -> resulting in an update in /foo/bar directory`
 				})
 
 				if err != nil {
-					panic(err)
+					fmt.Println(err)
+					os.Exit(1)
 				}
 			default:
-				panic(err)
+				fmt.Println(err)
+				os.Exit(1)
 			}
 		} else {
 			repositoryWorktree, err := repository.Worktree()
 
 			if err != nil {
-				panic(err)
+				fmt.Println(err)
+				os.Exit(1)
 			}
 
 			err = repositoryWorktree.Pull(&git.PullOptions{RemoteName: "origin"})
@@ -98,17 +103,20 @@ Example: manala update /foo/bar -> resulting in an update in /foo/bar directory`
 				switch err {
 				case git.NoErrAlreadyUpToDate:
 				default:
-					panic(err)
+					fmt.Println(err)
+					os.Exit(1)
 				}
 			}
 		}
 
-		// Print the latest commit that was just pulled
-		ref, err := repository.Head()
-		//CheckIfError(err)
-		commit, err := repository.CommitObject(ref.Hash())
-		//CheckIfError(err)
-		fmt.Println(commit)
+		syncer := fsync.NewSyncer()
+		syncer.Delete = true
+
+		err = syncer.Sync(filepath.Join(dir, ".manala"), filepath.Join(repositoryDir, template, ".manala"))
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
 	},
 }
 
