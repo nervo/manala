@@ -1,11 +1,12 @@
 package cmd
 
 import (
-	"fmt"
+	"github.com/apex/log"
 	"github.com/mostafah/fsync"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/src-d/go-git.v4"
+	"gopkg.in/src-d/go-git.v4/plumbing/protocol/packp/sideband"
 	"os"
 	"path"
 	"path/filepath"
@@ -36,12 +37,11 @@ Example: manala update /foo/bar -> resulting in an update in /foo/bar directory`
 		} else {
 			dir, err = os.Getwd()
 			if dir, err = os.Getwd(); err != nil {
-				fmt.Println(err)
-				os.Exit(1)
+				log.WithError(err).Fatal("Error getting working directory")
 			}
 		}
 
-		fmt.Printf("Dir: %s\n", dir)
+		log.WithField("dir", dir).Info("Set directory")
 
 		// Project config
 		projectConfig := viper.New()
@@ -50,61 +50,69 @@ Example: manala update /foo/bar -> resulting in an update in /foo/bar directory`
 		projectConfig.AddConfigPath(dir)
 
 		if err = projectConfig.ReadInConfig(); err != nil {
-			fmt.Println(err)
-			os.Exit(1)
+			log.WithError(err).Fatal("Error reading project configuration")
 		}
 
 		template := projectConfig.GetString("manala.template")
 
 		if template == "" {
-			fmt.Println("Manala template is not defined or empty")
-			os.Exit(1)
+			log.Fatal("Manala template is not defined or empty")
 		}
 
-		fmt.Printf("Template: %s\n", template)
+		log.WithField("template", template).Info("Set template")
 
 		repositoryUrl := "git@github.com:nervo/manala-templates.git"
 		repositoryDir := path.Join(config.GetString("cache-dir"), "repository")
 
-		fmt.Printf("Repository dir: %s\n", repositoryDir)
+		log.WithField("dir", repositoryDir).Info("Open repository")
+
+		// Send git progress human readable information to stdout if debug enabled
+		gitProgress := sideband.Progress(nil)
+		if config.GetBool("debug") {
+			gitProgress = os.Stdout
+		}
 
 		repository, err := git.PlainOpen(repositoryDir)
 
 		if err != nil {
 			switch err {
 			case git.ErrRepositoryNotExists:
-				fmt.Printf("Clone \"%s\" into \"%s\"\n", repositoryUrl, repositoryDir)
+				log.WithFields(log.Fields{
+					"url": repositoryUrl,
+					"dir": repositoryDir,
+				}).Info("Clone repository")
 
 				repository, err = git.PlainClone(repositoryDir, false, &git.CloneOptions{
 					URL:               repositoryUrl,
 					RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
-					Progress:          os.Stdout,
+					Progress:          gitProgress,
 				})
 
 				if err != nil {
-					fmt.Println(err)
-					os.Exit(1)
+					log.WithError(err).Fatal("Error cloning repository")
 				}
 			default:
-				fmt.Println(err)
-				os.Exit(1)
+				log.WithError(err).Fatal("Error opening repository")
 			}
 		} else {
 			repositoryWorktree, err := repository.Worktree()
 
 			if err != nil {
-				fmt.Println(err)
-				os.Exit(1)
+				log.WithError(err).Fatal("Error getting repository worktree")
 			}
 
-			err = repositoryWorktree.Pull(&git.PullOptions{RemoteName: "origin"})
+			log.WithField("dir", repositoryDir).Info("Pull repository worktree")
+
+			err = repositoryWorktree.Pull(&git.PullOptions{
+				RemoteName: "origin",
+				Progress:   gitProgress,
+			})
 
 			if err != nil {
 				switch err {
 				case git.NoErrAlreadyUpToDate:
 				default:
-					fmt.Println(err)
-					os.Exit(1)
+					log.WithError(err).Fatal("Error pulling repository worktree")
 				}
 			}
 		}
@@ -112,10 +120,11 @@ Example: manala update /foo/bar -> resulting in an update in /foo/bar directory`
 		syncer := fsync.NewSyncer()
 		syncer.Delete = true
 
+		log.Info("Sync project")
+
 		err = syncer.Sync(filepath.Join(dir, ".manala"), filepath.Join(repositoryDir, template, ".manala"))
 		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
+			log.WithError(err).Fatal("Error syncing project")
 		}
 	},
 }

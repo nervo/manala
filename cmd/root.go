@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/apex/log"
+	"github.com/apex/log/handlers/cli"
 	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -37,10 +39,13 @@ func Execute(version string) {
 
 func init() {
 	cobra.OnInitialize(initConfig)
+	cobra.OnInitialize(initLog)
 
-	rootCmd.PersistentFlags().StringP("cache-dir", "d", "", "cache dir (default $HOME/.manala/cache)")
+	rootCmd.PersistentFlags().StringP("cache-dir", "c", "", "cache dir (default $HOME/.manala/cache)")
+	rootCmd.PersistentFlags().BoolP("debug", "d", false, "debug")
 
 	config.BindPFlag("cache-dir", rootCmd.PersistentFlags().Lookup("cache-dir"))
+	config.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug"))
 }
 
 func initConfig() {
@@ -52,5 +57,14 @@ func initConfig() {
 			os.Exit(1)
 		}
 		config.Set("cache-dir", path.Join(home, ".manala", "cache"))
+	}
+}
+
+func initLog() {
+	log.SetHandler(cli.Default)
+
+	// Enable debug mode
+	if config.GetBool("debug") {
+		log.SetLevel(log.DebugLevel)
 	}
 }
