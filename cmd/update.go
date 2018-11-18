@@ -4,9 +4,9 @@ import (
 	"github.com/apex/log"
 	"github.com/mostafah/fsync"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/plumbing/protocol/packp/sideband"
+	"manala/pkg/project"
 	"os"
 	"path"
 	"path/filepath"
@@ -50,23 +50,14 @@ Example: manala update /foo/bar -> resulting in an update in /foo/bar directory`
 
 		log.WithField("dir", dir).Info("Set directory")
 
-		// Project config
-		projectConfig := viper.New()
-		projectConfig.SetConfigName("manala")
-		projectConfig.SetConfigType("yaml")
-		projectConfig.AddConfigPath(dir)
+		// Project
+		var p *project.Project
 
-		if err = projectConfig.ReadInConfig(); err != nil {
-			log.WithError(err).Fatal("Error reading project configuration")
+		if p, err = project.New(dir); err != nil {
+			log.WithError(err).Fatal("Error getting project")
 		}
 
-		template := projectConfig.GetString("manala.template")
-
-		if template == "" {
-			log.Fatal("Manala template is not defined or empty")
-		}
-
-		log.WithField("template", template).Info("Set template")
+		log.WithField("template", p.GetTemplate()).Info("Set template")
 
 		repositoryUrl := "git@github.com:nervo/manala-templates.git"
 		repositoryDir := path.Join(config.GetString("cache-dir"), "repository")
@@ -129,7 +120,7 @@ Example: manala update /foo/bar -> resulting in an update in /foo/bar directory`
 
 		log.Info("Sync project")
 
-		err = syncer.Sync(filepath.Join(dir, ".manala"), filepath.Join(repositoryDir, template, ".manala"))
+		err = syncer.Sync(filepath.Join(p.Dir, ".manala"), filepath.Join(repositoryDir, p.GetTemplate(), ".manala"))
 		if err != nil {
 			log.WithError(err).Fatal("Error syncing project")
 		}
