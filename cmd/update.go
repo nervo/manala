@@ -34,7 +34,14 @@ Example: manala update /foo/bar -> resulting in an update in /foo/bar directory`
 
 		if len(args) > 0 {
 			dir = args[0]
+			if !filepath.IsAbs(dir) {
+				log.WithField("dir", dir).Debug("Get absolute directory")
+				if dir, err = filepath.Abs(dir); err != nil {
+					log.WithError(err).Fatal("Error getting absolute directory")
+				}
+			}
 		} else {
+			log.Debug("Get working directory")
 			dir, err = os.Getwd()
 			if dir, err = os.Getwd(); err != nil {
 				log.WithError(err).Fatal("Error getting working directory")
