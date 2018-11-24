@@ -1,10 +1,19 @@
 package project
 
 import (
+	"github.com/apex/log/handlers/discard"
 	"testing"
+
+	"github.com/apex/log"
 )
 
-func TestNew(t *testing.T) {
+func TestFactory_Create(t *testing.T) {
+	// Factory
+	factory := &Factory{
+		Logger: &log.Logger{
+			Handler: discard.Default,
+		},
+	}
 	type args struct {
 		dir string
 	}
@@ -14,13 +23,14 @@ func TestNew(t *testing.T) {
 		wantTemplate string
 		wantErr      bool
 	}{
-		{"ok", args{"testdata/ok"}, "bar", false},
-		{"not_found", args{"testdata/not_found"}, "", true},
-		{"template_not_defined", args{"testdata/template_not_defined"}, "", true},
+		{"project", args{dir: "testdata/factory/project"}, "bar", false},
+		{"project_not_found", args{"testdata/factory/project_not_found"}, "", true},
+		{"project_template_not_defined", args{"testdata/factory/project_template_not_defined"}, "", true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := New(tt.args.dir)
+			got, err := factory.Create(tt.args.dir)
+			// Todo: not just error, but error type
 			if (err != nil) != tt.wantErr {
 				t.Errorf("New() error = %v, wantErr %v", err, tt.wantErr)
 				return
