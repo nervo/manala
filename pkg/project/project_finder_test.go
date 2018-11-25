@@ -7,14 +7,17 @@ import (
 	"testing"
 )
 
-func TestFactory_Create(t *testing.T) {
+func TestFinder_Find(t *testing.T) {
 	// Logger
 	logger := &log.Logger{
 		Handler: discard.Default,
 	}
-	// Factory
-	factory := &Factory{
-		Fs:     afero.NewBasePathFs(afero.NewOsFs(), "testdata/project_factory"),
+	// Finder
+	finder := &Finder{
+		Factory: &Factory{
+			Fs:     afero.NewBasePathFs(afero.NewOsFs(), "testdata/project_finder"),
+			Logger: logger,
+		},
 		Logger: logger,
 	}
 	type args struct {
@@ -27,21 +30,21 @@ func TestFactory_Create(t *testing.T) {
 		wantErr      error
 	}{
 		{"project", args{dir: "/project"}, "foo", nil},
-		{"project_not_found", args{"/project_not_found"}, "", ErrNotFound},
-		{"project_template_not_defined", args{"/project_template_not_defined"}, "", ErrTemplateNotDefined},
+		{"project_parent", args{dir: "/project_parent/foo"}, "foo", nil},
+		{"project_parent_not_found", args{dir: "/project_parent_not_found/foo"}, "", ErrNotFound},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := factory.Create(tt.args.dir)
+			got, err := finder.Find(tt.args.dir)
 			if err != tt.wantErr {
-				t.Errorf("Factory.Create() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("Finder.Find() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			// Todo: test for a real Project, and not just its template
 			if tt.wantTemplate != "" {
 				template := got.GetTemplate()
 				if template != tt.wantTemplate {
-					t.Errorf("Factory.Create() template = %v, wantTemplate %v", template, tt.wantTemplate)
+					t.Errorf("Finder.Find() template = %v, wantTemplate %v", template, tt.wantTemplate)
 				}
 			}
 		})

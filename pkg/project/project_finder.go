@@ -21,8 +21,8 @@ func (finder *Finder) Find(dir string) (*Project, error) {
 	for dir != lastDir {
 		lastDir = dir
 		finder.Logger.WithField("dir", dir).Debug("Searching project...")
-		if p, err := finder.Factory.Create(dir); err == nil {
-			return p, nil
+		if project, err := finder.Factory.Create(dir); err == nil {
+			return project, nil
 		}
 		dir = filepath.Dir(dir)
 	}
