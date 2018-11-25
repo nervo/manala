@@ -1,15 +1,16 @@
 package project
 
 import (
-	"github.com/apex/log/handlers/discard"
-	"testing"
-
 	"github.com/apex/log"
+	"github.com/apex/log/handlers/discard"
+	"github.com/spf13/afero"
+	"testing"
 )
 
 func TestFactory_Create(t *testing.T) {
 	// Factory
 	factory := &Factory{
+		Fs: afero.NewBasePathFs(afero.NewOsFs(), "testdata/project_factory"),
 		Logger: &log.Logger{
 			Handler: discard.Default,
 		},
@@ -23,9 +24,9 @@ func TestFactory_Create(t *testing.T) {
 		wantTemplate string
 		wantErr      bool
 	}{
-		{"project", args{dir: "testdata/factory/project"}, "bar", false},
-		{"project_not_found", args{"testdata/factory/project_not_found"}, "", true},
-		{"project_template_not_defined", args{"testdata/factory/project_template_not_defined"}, "", true},
+		{"project", args{dir: "/project"}, "bar", false},
+		{"project_not_found", args{"/project_not_found"}, "", true},
+		{"project_template_not_defined", args{"/project_template_not_defined"}, "", true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

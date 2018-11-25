@@ -3,6 +3,7 @@ package project
 import (
 	"errors"
 	"github.com/apex/log"
+	"github.com/spf13/afero"
 	"github.com/spf13/viper"
 )
 
@@ -16,11 +17,13 @@ type FactoryInterface interface {
 }
 
 type Factory struct {
+	Fs     afero.Fs
 	Logger log.Interface
 }
 
 func (factory *Factory) Create(dir string) (*Project, error) {
 	config := viper.New()
+	config.SetFs(factory.Fs)
 
 	config.SetConfigName("manala")
 	config.AddConfigPath(dir)
@@ -32,14 +35,14 @@ func (factory *Factory) Create(dir string) (*Project, error) {
 		return nil, ErrNotFound
 	}
 
-	p := &Project{
+	project := &Project{
 		Dir:    dir,
 		config: config,
 	}
 
-	if p.GetTemplate() == "" {
+	if project.GetTemplate() == "" {
 		return nil, ErrTemplateNotDefined
 	}
 
-	return p, nil
+	return project, nil
 }

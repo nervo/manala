@@ -13,6 +13,7 @@ require (
 	github.com/mostafah/fsync v0.0.0-20151120150823-6c37e2827238
 	github.com/onsi/ginkgo v1.7.0 // indirect
 	github.com/onsi/gomega v1.4.3 // indirect
+	github.com/spf13/afero v1.1.2
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/viper v1.2.1
 	gopkg.in/src-d/go-git.v4 v4.7.1

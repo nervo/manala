@@ -5,6 +5,7 @@ import (
 	"github.com/apex/log/handlers/cli"
 	"github.com/fgrosse/goldi"
 	"github.com/mitchellh/go-homedir"
+	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"manala/cmd"
 	. "manala/pkg/config"
@@ -28,11 +29,15 @@ func main() {
 		Level:   log.InfoLevel,
 	}
 
+	// File System
+	fs := afero.NewOsFs()
+
 	// Container
 	container := goldi.NewContainer(goldi.NewTypeRegistry(), map[string]interface{}{})
 	container.RegisterAll(map[string]goldi.TypeFactory{
 		"logger":          goldi.NewInstanceType(logger),
-		"project.factory": goldi.NewStructType(new(project.Factory), "@logger"),
+		"fs":              goldi.NewInstanceType(fs),
+		"project.factory": goldi.NewStructType(new(project.Factory), "@fs", "@logger"),
 		"project.finder":  goldi.NewStructType(new(project.Finder), "@project.factory", "@logger"),
 		"command.update":  goldi.NewStructType(new(cmd.UpdateCommand), "@project.finder", "@logger"),
 	})
