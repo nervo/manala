@@ -31,7 +31,10 @@ func (factory *Factory) Create(dir string) (*Project, error) {
 	factory.Logger.WithField("dir", dir).Debug("Reading project config...")
 
 	if err := config.ReadInConfig(); err != nil {
-		// Todo: Returns more specifics error, depending on the nature of err
+		switch err.(type) {
+		case viper.ConfigFileNotFoundError, viper.UnsupportedConfigError, viper.ConfigParseError:
+			return nil, ErrNotFound
+		}
 		return nil, ErrNotFound
 	}
 
