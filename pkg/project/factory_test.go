@@ -13,10 +13,10 @@ func TestFactory_Create(t *testing.T) {
 		Handler: discard.Default,
 	}
 	// Factory
-	factory := &Factory{
-		Fs:     afero.NewBasePathFs(afero.NewOsFs(), "testdata/project_factory"),
-		Logger: logger,
-	}
+	factory := NewFactory(
+		afero.NewBasePathFs(afero.NewOsFs(), "testdata/factory"),
+		logger,
+	)
 	type args struct {
 		dir string
 	}
@@ -34,14 +34,14 @@ func TestFactory_Create(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := factory.Create(tt.args.dir)
 			if err != tt.wantErr {
-				t.Errorf("Factory.Create() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("factory.Create() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			// Todo: test for a real Project, and not just its template
+			// Todo: test for a real project, and not just its template
 			if tt.wantTemplate != "" {
 				template := got.GetTemplate()
 				if template != tt.wantTemplate {
-					t.Errorf("Factory.Create() template = %v, wantTemplate %v", template, tt.wantTemplate)
+					t.Errorf("factory.Create() template = %v, wantTemplate %v", template, tt.wantTemplate)
 				}
 			}
 		})
