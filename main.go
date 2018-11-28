@@ -44,7 +44,7 @@ func main() {
 		"logger":                    goldi.NewInstanceType(logger),
 		"fs":                        goldi.NewInstanceType(fs),
 		"project.factory":           goldi.NewType(project.NewFactory, "@fs", "@logger"),
-		"project.finder":            goldi.NewType(project.NewFinder, "@project.factory", "@logger"),
+		"project.finder":            goldi.NewType(project.NewFinder, "@fs", "@project.factory", "@logger"),
 		"template.repository_store": goldi.NewType(template.NewRepositoryStore, "@config", "@fs", "@logger"),
 		"sync":                      goldi.NewType(sync.NewSync),
 		"cmd.update":                goldi.NewType(cmd.NewUpdate, "@project.finder", "@template.repository_store", "@sync", "@config", "@logger"),

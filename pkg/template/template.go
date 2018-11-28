@@ -8,6 +8,6 @@ type template struct {
 	dir string
 }
 
-func (t *template) GetDir() string {
-	return t.dir
+func (tpl *template) GetDir() string {
+	return tpl.dir
 }

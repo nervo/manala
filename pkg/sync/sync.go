@@ -13,7 +13,7 @@ var (
 )
 
 type Interface interface {
-	Sync(p project.Interface, t template.Interface) error
+	Sync(prj project.Interface, tpl template.Interface) error
 }
 
 func NewSync() Interface {
@@ -29,8 +29,8 @@ type sync struct {
 	syncer *fsync.Syncer
 }
 
-func (s *sync) Sync(p project.Interface, t template.Interface) error {
-	err := s.syncer.Sync(filepath.Join(p.GetDir(), ".manala"), filepath.Join(t.GetDir(), ".manala"))
+func (s *sync) Sync(prj project.Interface, tpl template.Interface) error {
+	err := s.syncer.Sync(filepath.Join(prj.GetDir(), ".manala"), filepath.Join(tpl.GetDir(), ".manala"))
 	if err != nil {
 		return Err
 	}

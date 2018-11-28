@@ -32,9 +32,9 @@ func (r *repository) Get(name string) (Interface, error) {
 	}
 
 	// Instantiate template
-	t := &template{
+	tpl := &template{
 		dir: dir,
 	}
 
-	return t, nil
+	return tpl, nil
 }

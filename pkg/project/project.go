@@ -14,10 +14,10 @@ type project struct {
 	config *viper.Viper
 }
 
-func (p *project) GetDir() string {
-	return p.dir
+func (prj *project) GetDir() string {
+	return prj.dir
 }
 
-func (p *project) GetTemplate() string {
-	return p.config.GetString("manala.template")
+func (prj *project) GetTemplate() string {
+	return prj.config.GetString("manala.template")
 }

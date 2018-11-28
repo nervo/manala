@@ -18,7 +18,7 @@ import (
 
 func UpdateCobra(container *goldi.Container) *cobra.Command {
 
-	var o updateOptions
+	var opt updateOptions
 
 	cmd := &cobra.Command{
 		Use:   "update",
@@ -36,11 +36,11 @@ Example: manala update /foo/bar -> resulting in an update in /foo/bar directory`
 			if len(args) > 0 {
 				dir = args[0]
 			}
-			container.MustGet("cmd.update").(*update).Run(dir, o)
+			container.MustGet("cmd.update").(*update).run(dir, opt)
 		},
 	}
 
-	cmd.Flags().BoolVarP(&o.Recursive, "recursive", "r", false, "Recursive")
+	cmd.Flags().BoolVarP(&opt.Recursive, "recursive", "r", false, "Recursive")
 
 	return cmd
 }
@@ -71,7 +71,7 @@ type update struct {
 	logger                  log.Interface
 }
 
-func (cmd *update) Run(dir string, o updateOptions) {
+func (cmd *update) run(dir string, opt updateOptions) {
 
 	var err error
 
@@ -91,13 +91,23 @@ func (cmd *update) Run(dir string, o updateOptions) {
 		}
 	}
 
-	// Find project
-	p, err := cmd.projectFinder.Find(dir)
-	if err != nil {
-		cmd.logger.WithError(err).Fatal("Error finding project")
-	}
+	if opt.Recursive {
+		err = cmd.projectFinder.Walk(dir, cmd.updateProject)
+		if err != nil {
+			cmd.logger.WithError(err).Fatal("Error finding projects recursively")
+		}
+	} else {
+		prj, err := cmd.projectFinder.Find(dir)
+		if err != nil {
+			cmd.logger.WithError(err).Fatal("Error finding project")
+		}
 
-	cmd.logger.WithField("dir", p.GetDir()).WithField("template", p.GetTemplate()).Info("Project found")
+		cmd.updateProject(prj)
+	}
+}
+
+func (cmd *update) updateProject(prj project.Interface ) {
+	cmd.logger.WithField("dir", prj.GetDir()).WithField("template", prj.GetTemplate()).Info("Project found")
 
 	// Get template repository
 	r, err := cmd.templateRepositoryStore.Get(cmd.config.TemplateRepository)
@@ -108,15 +118,15 @@ func (cmd *update) Run(dir string, o updateOptions) {
 	cmd.logger.WithField("dir", r.GetDir()).Info("Template repository gotten")
 
 	// Get template
-	t, err := r.Get(p.GetTemplate())
+	tpl, err := r.Get(prj.GetTemplate())
 	if err != nil {
 		cmd.logger.WithError(err).Fatal("Error getting template")
 	}
 
-	cmd.logger.WithField("dir", t.GetDir()).Info("Template gotten")
+	cmd.logger.WithField("dir", tpl.GetDir()).Info("Template gotten")
 
 	// Sync project
-	err = cmd.sync.Sync(p, t)
+	err = cmd.sync.Sync(prj, tpl)
 	if err != nil {
 		cmd.logger.WithError(err).Fatal("Error syncing project")
 	}

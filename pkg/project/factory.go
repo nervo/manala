@@ -45,14 +45,14 @@ func (fa *factory) Create(dir string) (Interface, error) {
 		return nil, ErrNotFound
 	}
 
-	p := &project{
+	prj := &project{
 		dir:    dir,
 		config: cfg,
 	}
 
-	if p.GetTemplate() == "" {
+	if prj.GetTemplate() == "" {
 		return nil, ErrTemplateNotDefined
 	}
 
-	return p, nil
+	return prj, nil
 }
