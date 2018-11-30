@@ -4,10 +4,11 @@ import (
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/discard"
 	"github.com/spf13/afero"
+	"reflect"
 	"testing"
 )
 
-func TestFactory_Create(t *testing.T) {
+func Test_factory_Create(t *testing.T) {
 	// Logger
 	logger := &log.Logger{
 		Handler: discard.Default,
@@ -21,27 +22,26 @@ func TestFactory_Create(t *testing.T) {
 		dir string
 	}
 	tests := []struct {
-		name         string
-		args         args
-		wantTemplate string
-		wantErr      error
+		name    string
+		args    args
+		want    [2]string
+		wantErr error
 	}{
-		{"project", args{dir: "/project"}, "foo", nil},
-		{"project_not_found", args{"/project_not_found"}, "", ErrNotFound},
-		{"project_template_not_defined", args{"/project_template_not_defined"}, "", ErrTemplateNotDefined},
+		{"project", args{dir: "/project"}, [2]string{"/project", "foo"}, nil},
+		{"project_not_found", args{"/project_not_found"}, [2]string{}, ErrNotFound},
+		{"project_template_not_defined", args{"/project_template_not_defined"}, [2]string{}, ErrTemplateNotDefined},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := factory.Create(tt.args.dir)
+			prj, err := factory.Create(tt.args.dir)
 			if err != tt.wantErr {
 				t.Errorf("factory.Create() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			// Todo: test for a real project, and not just its template
-			if tt.wantTemplate != "" {
-				template := got.GetTemplate()
-				if template != tt.wantTemplate {
-					t.Errorf("factory.Create() template = %v, wantTemplate %v", template, tt.wantTemplate)
+			if tt.want != [2]string{} {
+				got := [2]string{prj.GetDir(), prj.GetTemplate()}
+				if !reflect.DeepEqual(got, tt.want) {
+					t.Errorf("factory.Create() got = %v, want %v", got, tt.want)
 				}
 			}
 		})

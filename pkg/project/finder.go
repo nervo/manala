@@ -2,21 +2,26 @@ package project
 
 import (
 	"github.com/apex/log"
+	"github.com/spf13/afero"
+	"os"
 	"path/filepath"
 )
 
 type FinderInterface interface {
 	Find(dir string) (Interface, error)
+	Walk(dir string, fn WalkFunc) error
 }
 
-func NewFinder(factory FactoryInterface, logger log.Interface) FinderInterface {
+func NewFinder(fs afero.Fs, factory FactoryInterface, logger log.Interface) FinderInterface {
 	return &finder{
+		fs:      fs,
 		factory: factory,
 		logger:  logger,
 	}
 }
 
 type finder struct {
+	fs      afero.Fs
 	factory FactoryInterface
 	logger  log.Interface
 }
@@ -36,4 +41,32 @@ func (fi *finder) Find(dir string) (Interface, error) {
 	}
 
 	return nil, ErrNotFound
+}
+
+type WalkFunc func(project Interface)
+
+// Find projects recursively starting from dir
+func (fi *finder) Walk(dir string, fn WalkFunc) error {
+
+	err := afero.Walk(fi.fs, dir, func(path string, info os.FileInfo, err error) error {
+		if !info.IsDir() {
+			return nil
+		}
+
+		fi.logger.WithField("dir", path).Debug("Searching project...")
+		p, err := fi.factory.Create(path)
+		if err != nil {
+			return nil
+		}
+
+		fn(p)
+
+		return nil
+	})
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
