@@ -3,6 +3,7 @@ module manala
 require (
 	github.com/BurntSushi/toml v0.3.1 // indirect
 	github.com/apex/log v1.1.0
+	github.com/asaskevich/govalidator v0.0.0-20180720115003-f9ffefc3facf
 	github.com/fatih/color v1.7.0 // indirect
 	github.com/fgrosse/goldi v1.0.0
 	github.com/fgrosse/gotility v0.0.0-20170502105117-8647973795ae // indirect

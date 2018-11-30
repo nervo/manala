@@ -6,20 +6,31 @@ import (
 
 var (
 	ErrNotFound = errors.New("template not found")
+	ErrConfig   = errors.New("template config invalid")
 )
 
 type Interface interface {
+	GetName() string
+	GetDescription() string
 	GetDir() string
 }
 
-func New(dir string) Interface {
-	return &template{
-		dir: dir,
-	}
+type config struct {
+	Description string `mapstructure:"description" valid:"required"`
 }
 
 type template struct {
-	dir string
+	name   string
+	config config
+	dir    string
+}
+
+func (tpl *template) GetName() string {
+	return tpl.name
+}
+
+func (tpl *template) GetDescription() string {
+	return tpl.config.Description
 }
 
 func (tpl *template) GetDir() string {

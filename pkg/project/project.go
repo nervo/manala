@@ -2,28 +2,31 @@ package project
 
 import (
 	"errors"
-	"github.com/spf13/viper"
 )
 
 var (
-	ErrNotFound           = errors.New("project not found")
-	ErrTemplateNotDefined = errors.New("project template not defined")
+	ErrNotFound = errors.New("project not found")
+	ErrConfig   = errors.New("project config invalid")
 )
 
 type Interface interface {
-	GetDir() string
 	GetTemplate() string
+	GetDir() string
+}
+
+type config struct {
+	Template string `mapstructure:"template" valid:"required"`
 }
 
 type project struct {
+	config config
 	dir    string
-	config *viper.Viper
+}
+
+func (prj *project) GetTemplate() string {
+	return prj.config.Template
 }
 
 func (prj *project) GetDir() string {
 	return prj.dir
-}
-
-func (prj *project) GetTemplate() string {
-	return prj.config.GetString("manala.template")
 }
