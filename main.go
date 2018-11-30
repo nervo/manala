@@ -12,7 +12,7 @@ import (
 	"manala/pkg/config"
 	"manala/pkg/project"
 	"manala/pkg/sync"
-	"manala/pkg/template"
+	"manala/pkg/repository"
 	"os"
 	"path"
 )
@@ -22,9 +22,9 @@ var version = "dev"
 
 // Config
 var cfg = &config.Config{
-	Debug:              false,
-	CacheDir:           "",
-	TemplateRepository: "git@github.com:nervo/manala-templates.git",
+	Debug:      false,
+	CacheDir:   "",
+	Repository: "git@github.com:nervo/manala-templates.git",
 }
 
 func main() {
@@ -40,14 +40,14 @@ func main() {
 	// Container
 	container := goldi.NewContainer(goldi.NewTypeRegistry(), map[string]interface{}{})
 	container.RegisterAll(map[string]goldi.TypeFactory{
-		"config":                    goldi.NewInstanceType(cfg),
-		"logger":                    goldi.NewInstanceType(logger),
-		"fs":                        goldi.NewInstanceType(fs),
-		"project.factory":           goldi.NewType(project.NewFactory, "@fs", "@logger"),
-		"project.finder":            goldi.NewType(project.NewFinder, "@fs", "@project.factory", "@logger"),
-		"template.repository_store": goldi.NewType(template.NewRepositoryStore, "@config", "@fs", "@logger"),
-		"sync":                      goldi.NewType(sync.NewSync),
-		"cmd.update":                goldi.NewType(cmd.NewUpdate, "@project.finder", "@template.repository_store", "@sync", "@config", "@logger"),
+		"config":           goldi.NewInstanceType(cfg),
+		"logger":           goldi.NewInstanceType(logger),
+		"fs":               goldi.NewInstanceType(fs),
+		"project.factory":  goldi.NewType(project.NewFactory, "@fs", "@logger"),
+		"project.finder":   goldi.NewType(project.NewFinder, "@fs", "@project.factory", "@logger"),
+		"repository.store": goldi.NewType(repository.NewStore, "@config", "@fs", "@logger"),
+		"sync":             goldi.NewType(sync.NewSync),
+		"cmd.update":       goldi.NewType(cmd.NewUpdate, "@project.finder", "@repository.store", "@sync", "@config", "@logger"),
 	})
 
 	val := validation.NewContainerValidator()
@@ -63,7 +63,7 @@ such as makefile targets, virtualization and provisioning files...
 Templates are pulled from git repository.`,
 		Version: version,
 	}
-	rootCmd.PersistentFlags().StringVarP(&cfg.TemplateRepository, "template-repository", "t", cfg.TemplateRepository, "template repository")
+	rootCmd.PersistentFlags().StringVarP(&cfg.Repository, "repository", "t", cfg.Repository, "repository")
 	rootCmd.PersistentFlags().StringVarP(&cfg.CacheDir, "cache-dir", "c", cfg.CacheDir, "cache dir (default \"$HOME/.manala/cache\")")
 	rootCmd.PersistentFlags().BoolVarP(&cfg.Debug, "debug", "d", cfg.Debug, "debug")
 

@@ -1,7 +1,13 @@
 package project
 
 import (
+	"errors"
 	"github.com/spf13/viper"
+)
+
+var (
+	ErrNotFound           = errors.New("project not found")
+	ErrTemplateNotDefined = errors.New("project template not defined")
 )
 
 type Interface interface {

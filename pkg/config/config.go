@@ -1,7 +1,7 @@
 package config
 
 type Config struct {
-	Debug              bool
-	CacheDir           string
-	TemplateRepository string
+	Debug      bool
+	CacheDir   string
+	Repository string
 }

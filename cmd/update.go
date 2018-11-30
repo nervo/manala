@@ -6,8 +6,8 @@ import (
 	"github.com/spf13/cobra"
 	"manala/pkg/config"
 	"manala/pkg/project"
+	"manala/pkg/repository"
 	"manala/pkg/sync"
-	"manala/pkg/template"
 	"os"
 	"path/filepath"
 )
@@ -53,22 +53,22 @@ type updateOptions struct {
 	Recursive bool
 }
 
-func NewUpdate(projectFinder project.FinderInterface, templateRepositoryStore template.RepositoryStoreInterface, sync sync.Interface, config *config.Config, logger log.Interface) *update {
+func NewUpdate(projectFinder project.FinderInterface, repositoryStore repository.StoreInterface, sync sync.Interface, config *config.Config, logger log.Interface) *update {
 	return &update{
-		projectFinder:           projectFinder,
-		templateRepositoryStore: templateRepositoryStore,
-		sync:                    sync,
-		config:                  config,
-		logger:                  logger,
+		projectFinder:   projectFinder,
+		repositoryStore: repositoryStore,
+		sync:            sync,
+		config:          config,
+		logger:          logger,
 	}
 }
 
 type update struct {
-	projectFinder           project.FinderInterface
-	templateRepositoryStore template.RepositoryStoreInterface
-	sync                    sync.Interface
-	config                  *config.Config
-	logger                  log.Interface
+	projectFinder   project.FinderInterface
+	repositoryStore repository.StoreInterface
+	sync            sync.Interface
+	config          *config.Config
+	logger          log.Interface
 }
 
 func (cmd *update) run(dir string, opt updateOptions) {
@@ -109,16 +109,16 @@ func (cmd *update) run(dir string, opt updateOptions) {
 func (cmd *update) updateProject(prj project.Interface ) {
 	cmd.logger.WithField("dir", prj.GetDir()).WithField("template", prj.GetTemplate()).Info("Project found")
 
-	// Get template repository
-	r, err := cmd.templateRepositoryStore.Get(cmd.config.TemplateRepository)
+	// Get repository
+	rep, err := cmd.repositoryStore.Get(cmd.config.Repository)
 	if err != nil {
-		cmd.logger.WithError(err).Fatal("Error getting template repository")
+		cmd.logger.WithError(err).Fatal("Error getting repository")
 	}
 
-	cmd.logger.WithField("dir", r.GetDir()).Info("Template repository gotten")
+	cmd.logger.WithField("dir", rep.GetDir()).Info("Repository gotten")
 
 	// Get template
-	tpl, err := r.Get(prj.GetTemplate())
+	tpl, err := rep.Get(prj.GetTemplate())
 	if err != nil {
 		cmd.logger.WithError(err).Fatal("Error getting template")
 	}
