@@ -21,8 +21,9 @@ func UpdateCobra(container *goldi.Container) *cobra.Command {
 	var opt updateOptions
 
 	cmd := &cobra.Command{
-		Use:   "update",
-		Short: "Update project",
+		Use:     "update",
+		Aliases: []string{"up"},
+		Short:   "Update project",
 		Long: `Update (manala update) will update project, based on
 template and related options defined in manala.yaml.
 
@@ -106,7 +107,7 @@ func (cmd *update) run(dir string, opt updateOptions) {
 	}
 }
 
-func (cmd *update) updateProject(prj project.Interface ) {
+func (cmd *update) updateProject(prj project.Interface) {
 	cmd.logger.WithField("dir", prj.GetDir()).WithField("template", prj.GetTemplate()).Info("Project found")
 
 	// Get repository

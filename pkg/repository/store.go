@@ -8,6 +8,7 @@ import (
 	"gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/plumbing/protocol/packp/sideband"
 	"manala/pkg/config"
+	"manala/pkg/template"
 	"os"
 	"path"
 )
@@ -16,20 +17,22 @@ type StoreInterface interface {
 	Get(src string) (Interface, error)
 }
 
-func NewStore(config *config.Config, fs afero.Fs, logger log.Interface) StoreInterface {
+func NewStore(config *config.Config, fs afero.Fs, templateFactory template.FactoryInterface, logger log.Interface) StoreInterface {
 	return &store{
-		config:       config,
-		fs:           fs,
-		logger:       logger,
-		repositories: make(map[string]Interface),
+		config:          config,
+		fs:              fs,
+		templateFactory: templateFactory,
+		logger:          logger,
+		repositories:    make(map[string]Interface),
 	}
 }
 
 type store struct {
-	config       *config.Config
-	fs           afero.Fs
-	logger       log.Interface
-	repositories map[string]Interface
+	config          *config.Config
+	fs              afero.Fs
+	templateFactory template.FactoryInterface
+	logger          log.Interface
+	repositories    map[string]Interface
 }
 
 func (str *store) Get(src string) (Interface, error) {
@@ -100,13 +103,15 @@ func (str *store) Get(src string) (Interface, error) {
 	}
 
 	// Instantiate repository
-	r := &repository{
-		dir: dir,
-		fs:  str.fs,
-	}
+	rep := New(
+		dir,
+		str.fs,
+		str.templateFactory,
+		str.logger,
+	)
 
 	// Store repository
-	str.repositories[src] = r
+	str.repositories[src] = rep
 
-	return r, nil
+	return rep, nil
 }

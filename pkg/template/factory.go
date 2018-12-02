@@ -1,4 +1,4 @@
-package project
+package template
 
 import (
 	"github.com/apex/log"
@@ -8,7 +8,7 @@ import (
 )
 
 type FactoryInterface interface {
-	Create(dir string) (Interface, error)
+	Create(name string, dir string) (Interface, error)
 }
 
 func NewFactory(fs afero.Fs, logger log.Interface) FactoryInterface {
@@ -23,14 +23,14 @@ type factory struct {
 	logger log.Interface
 }
 
-func (fa *factory) Create(dir string) (Interface, error) {
+func (fa *factory) Create(name string, dir string) (Interface, error) {
 	vpr := viper.New()
 	vpr.SetFs(fa.fs)
 
 	vpr.SetConfigName("manala")
 	vpr.AddConfigPath(dir)
 
-	fa.logger.WithField("dir", dir).Debug("Reading project config...")
+	fa.logger.WithField("dir", dir).Debug("Reading template config...")
 
 	if err := vpr.ReadInConfig(); err != nil {
 		switch err.(type) {
@@ -58,10 +58,12 @@ func (fa *factory) Create(dir string) (Interface, error) {
 		return nil, err
 	}
 
-	prj := &project{
+	// Instantiate template
+	tpl := &template{
+		name:   name,
 		config: cfg,
 		dir:    dir,
 	}
 
-	return prj, nil
+	return tpl, nil
 }

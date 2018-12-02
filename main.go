@@ -11,8 +11,9 @@ import (
 	"manala/cmd"
 	"manala/pkg/config"
 	"manala/pkg/project"
-	"manala/pkg/sync"
 	"manala/pkg/repository"
+	"manala/pkg/sync"
+	"manala/pkg/template"
 	"os"
 	"path"
 )
@@ -45,9 +46,11 @@ func main() {
 		"fs":               goldi.NewInstanceType(fs),
 		"project.factory":  goldi.NewType(project.NewFactory, "@fs", "@logger"),
 		"project.finder":   goldi.NewType(project.NewFinder, "@fs", "@project.factory", "@logger"),
-		"repository.store": goldi.NewType(repository.NewStore, "@config", "@fs", "@logger"),
+		"repository.store": goldi.NewType(repository.NewStore, "@config", "@fs", "@template.factory", "@logger"),
+		"template.factory": goldi.NewType(template.NewFactory, "@fs", "@logger"),
 		"sync":             goldi.NewType(sync.NewSync),
 		"cmd.update":       goldi.NewType(cmd.NewUpdate, "@project.finder", "@repository.store", "@sync", "@config", "@logger"),
+		"cmd.list":         goldi.NewType(cmd.NewList, "@repository.store", "@config", "@logger"),
 	})
 
 	val := validation.NewContainerValidator()
@@ -83,8 +86,9 @@ Templates are pulled from git repository.`,
 		}
 	})
 
-	// Command - Update
+	// Commands
 	rootCmd.AddCommand(cmd.UpdateCobra(container))
+	rootCmd.AddCommand(cmd.ListCobra(container))
 
 	// Execute
 	if err := rootCmd.Execute(); err != nil {

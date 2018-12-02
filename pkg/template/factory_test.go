@@ -1,4 +1,4 @@
-package project
+package template
 
 import (
 	"github.com/apex/log"
@@ -19,27 +19,26 @@ func Test_factory_Create(t *testing.T) {
 		logger,
 	)
 	type args struct {
-		dir string
+		name string
+		dir  string
 	}
 	tests := []struct {
 		name    string
 		args    args
-		want    [2]string
+		want    [3]string
 		wantErr error
 	}{
-		{"project", args{dir: "/project"}, [2]string{"/project", "foo"}, nil},
-		{"project_not_found", args{"/project_not_found"}, [2]string{}, ErrNotFound},
-		{"project_template_not_defined", args{"/project_template_not_defined"}, [2]string{}, ErrConfig},
+		{"template", args{name: "foo", dir: "/template"}, [3]string{"foo", "Foo", "/template"}, nil},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			prj, err := factory.Create(tt.args.dir)
+			tpl, err := factory.Create(tt.args.name, tt.args.dir)
 			if err != tt.wantErr {
 				t.Errorf("factory.Create() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if tt.want != [2]string{} {
-				got := [2]string{prj.GetDir(), prj.GetTemplate()}
+			if tt.want != [3]string{} {
+				got := [3]string{tpl.GetName(), tpl.GetDescription(), tpl.GetDir()}
 				if !reflect.DeepEqual(got, tt.want) {
 					t.Errorf("factory.Create() got = %v, want %v", got, tt.want)
 				}
