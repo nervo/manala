@@ -8,29 +8,27 @@ import (
 )
 
 type FactoryInterface interface {
-	Create(name string, dir string) (Interface, error)
+	Create(name string, fs afero.Fs) (Interface, error)
 }
 
-func NewFactory(fs afero.Fs, logger log.Interface) FactoryInterface {
+func NewFactory(logger log.Interface) FactoryInterface {
 	return &factory{
-		fs:     fs,
 		logger: logger,
 	}
 }
 
 type factory struct {
-	fs     afero.Fs
 	logger log.Interface
 }
 
-func (fa *factory) Create(name string, dir string) (Interface, error) {
+func (fa *factory) Create(name string, fs afero.Fs) (Interface, error) {
 	vpr := viper.New()
-	vpr.SetFs(fa.fs)
+	vpr.SetFs(fs)
 
 	vpr.SetConfigName("manala")
-	vpr.AddConfigPath(dir)
+	vpr.AddConfigPath("/")
 
-	fa.logger.WithField("dir", dir).Debug("Reading template config...")
+	fa.logger.Debug("Reading template config...")
 
 	if err := vpr.ReadInConfig(); err != nil {
 		switch err.(type) {
@@ -61,8 +59,8 @@ func (fa *factory) Create(name string, dir string) (Interface, error) {
 	// Instantiate template
 	tpl := &template{
 		name:   name,
+		fs:     fs,
 		config: cfg,
-		dir:    dir,
 	}
 
 	return tpl, nil

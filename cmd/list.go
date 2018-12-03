@@ -63,7 +63,7 @@ func (cmd *list) run(opt listOptions) {
 		cmd.logger.WithError(err).Fatal("Error getting repository")
 	}
 
-	cmd.logger.WithField("dir", rep.GetDir()).Info("Repository gotten")
+	cmd.logger.WithField("src", rep.GetSrc()).Info("Repository gotten")
 
 	err = rep.Walk(func(tpl template.Interface) {
 		fmt.Printf("%s: %s\n", tpl.GetName(), tpl.GetDescription())

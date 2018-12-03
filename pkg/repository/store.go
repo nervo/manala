@@ -63,7 +63,7 @@ func (str *store) Get(src string) (Interface, error) {
 	if err != nil {
 		switch err {
 		case git.ErrRepositoryNotExists:
-			log.Debug("Cloning cache git repository...")
+			str.logger.Debug("Cloning cache git repository...")
 
 			gitRepository, err = git.PlainClone(dir, false, &git.CloneOptions{
 				URL:               src,
@@ -78,7 +78,7 @@ func (str *store) Get(src string) (Interface, error) {
 			return nil, ErrUnopenable
 		}
 	} else {
-		log.Debug("Getting cache git repository worktree...")
+		str.logger.Debug("Getting cache git repository worktree...")
 
 		gitRepositoryWorktree, err := gitRepository.Worktree()
 
@@ -86,7 +86,7 @@ func (str *store) Get(src string) (Interface, error) {
 			return nil, ErrInvalid
 		}
 
-		log.Debug("Pulling cache git repository worktree...")
+		str.logger.Debug("Pulling cache git repository worktree...")
 
 		err = gitRepositoryWorktree.Pull(&git.PullOptions{
 			RemoteName: "origin",
@@ -97,15 +97,15 @@ func (str *store) Get(src string) (Interface, error) {
 			switch err {
 			case git.NoErrAlreadyUpToDate:
 			default:
-				return nil, ErrInvalid
+				return nil, err
 			}
 		}
 	}
 
 	// Instantiate repository
 	rep := New(
-		dir,
-		str.fs,
+		src,
+		afero.NewBasePathFs(str.fs, dir),
 		str.templateFactory,
 		str.logger,
 	)

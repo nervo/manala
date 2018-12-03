@@ -2,6 +2,7 @@ package template
 
 import (
 	"errors"
+	"github.com/spf13/afero"
 )
 
 var (
@@ -11,28 +12,34 @@ var (
 
 type Interface interface {
 	GetName() string
+	GetFs() afero.Fs
 	GetDescription() string
-	GetDir() string
+	GetSync() []string
 }
 
 type config struct {
-	Description string `mapstructure:"description" valid:"required"`
+	Description string   `mapstructure:"description" valid:"required"`
+	Sync        []string `mapstructure:"sync"`
 }
 
 type template struct {
 	name   string
+	fs     afero.Fs
 	config config
-	dir    string
 }
 
 func (tpl *template) GetName() string {
 	return tpl.name
 }
 
+func (tpl *template) GetFs() afero.Fs {
+	return tpl.fs
+}
+
 func (tpl *template) GetDescription() string {
 	return tpl.config.Description
 }
 
-func (tpl *template) GetDir() string {
-	return tpl.dir
+func (tpl *template) GetSync() []string {
+	return tpl.config.Sync
 }

@@ -33,7 +33,7 @@ func (fi *finder) Find(dir string) (Interface, error) {
 	for dir != lastDir {
 		lastDir = dir
 		fi.logger.WithField("dir", dir).Debug("Searching project...")
-		p, err := fi.factory.Create(dir)
+		p, err := fi.factory.Create(afero.NewBasePathFs(fi.fs, dir))
 		if err == nil {
 			return p, nil
 		}
@@ -53,8 +53,8 @@ func (fi *finder) Walk(dir string, fn WalkFunc) error {
 			return nil
 		}
 
-		fi.logger.WithField("dir", path).Debug("Searching project...")
-		p, err := fi.factory.Create(path)
+		fi.logger.WithField("path", path).Debug("Searching project...")
+		p, err := fi.factory.Create(afero.NewBasePathFs(fi.fs, path))
 		if err != nil {
 			return nil
 		}
