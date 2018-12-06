@@ -12,7 +12,7 @@ import (
 	"manala/pkg/config"
 	"manala/pkg/project"
 	"manala/pkg/repository"
-	"manala/pkg/sync"
+	"manala/pkg/syncer"
 	"manala/pkg/template"
 	"os"
 	"path"
@@ -44,12 +44,12 @@ func main() {
 		"config":           goldi.NewInstanceType(cfg),
 		"logger":           goldi.NewInstanceType(logger),
 		"fs":               goldi.NewInstanceType(fs),
-		"project.factory":  goldi.NewType(project.NewFactory, "@fs", "@logger"),
+		"project.factory":  goldi.NewType(project.NewFactory, "@logger"),
 		"project.finder":   goldi.NewType(project.NewFinder, "@fs", "@project.factory", "@logger"),
 		"repository.store": goldi.NewType(repository.NewStore, "@config", "@fs", "@template.factory", "@logger"),
-		"template.factory": goldi.NewType(template.NewFactory, "@fs", "@logger"),
-		"sync":             goldi.NewType(sync.NewSync),
-		"cmd.update":       goldi.NewType(cmd.NewUpdate, "@project.finder", "@repository.store", "@sync", "@config", "@logger"),
+		"template.factory": goldi.NewType(template.NewFactory, "@logger"),
+		"syncer":           goldi.NewType(syncer.New),
+		"cmd.update":       goldi.NewType(cmd.NewUpdate, "@project.finder", "@repository.store", "@syncer", "@config", "@logger"),
 		"cmd.list":         goldi.NewType(cmd.NewList, "@repository.store", "@config", "@logger"),
 	})
 

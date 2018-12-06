@@ -9,36 +9,51 @@ import (
 )
 
 func Test_factory_Create(t *testing.T) {
+	// File system
+	fs := afero.NewBasePathFs(
+		afero.NewOsFs(),
+		"testdata/factory",
+	)
 	// Logger
 	logger := &log.Logger{
 		Handler: discard.Default,
 	}
 	// Factory
 	factory := NewFactory(
-		afero.NewBasePathFs(afero.NewOsFs(), "testdata/factory"),
 		logger,
 	)
+
 	type args struct {
 		name string
-		dir  string
+		fs   afero.Fs
+	}
+	type want struct {
+		name        string
+		description string
+		sync        []string
 	}
 	tests := []struct {
 		name    string
 		args    args
-		want    [3]string
+		want    want
 		wantErr error
 	}{
-		{"template", args{name: "foo", dir: "/template"}, [3]string{"foo", "Foo", "/template"}, nil},
+		{
+			"template",
+			args{name: "foo", fs: afero.NewBasePathFs(fs, "template")},
+			want{name: "foo", description: "Foo", sync: []string{"foo", "bar"}},
+			nil,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tpl, err := factory.Create(tt.args.name, tt.args.dir)
+			tpl, err := factory.Create(tt.args.name, tt.args.fs)
 			if err != tt.wantErr {
 				t.Errorf("factory.Create() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if tt.want != [3]string{} {
-				got := [3]string{tpl.GetName(), tpl.GetDescription(), tpl.GetDir()}
+			if !reflect.DeepEqual(tt.want, want{}) {
+				got := want{name: tpl.GetName(), description: tpl.GetDescription(), sync: tpl.GetSync()}
 				if !reflect.DeepEqual(got, tt.want) {
 					t.Errorf("factory.Create() got = %v, want %v", got, tt.want)
 				}

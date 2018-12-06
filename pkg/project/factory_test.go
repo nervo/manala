@@ -9,37 +9,60 @@ import (
 )
 
 func Test_factory_Create(t *testing.T) {
+	// File system
+	fs := afero.NewBasePathFs(
+		afero.NewOsFs(),
+		"testdata/factory",
+	)
 	// Logger
 	logger := &log.Logger{
 		Handler: discard.Default,
 	}
 	// Factory
 	factory := NewFactory(
-		afero.NewBasePathFs(afero.NewOsFs(), "testdata/factory"),
 		logger,
 	)
+
 	type args struct {
-		dir string
+		fs afero.Fs
+	}
+	type want struct {
+		template string
 	}
 	tests := []struct {
 		name    string
 		args    args
-		want    [2]string
+		want    want
 		wantErr error
 	}{
-		{"project", args{dir: "/project"}, [2]string{"/project", "foo"}, nil},
-		{"project_not_found", args{"/project_not_found"}, [2]string{}, ErrNotFound},
-		{"project_template_not_defined", args{"/project_template_not_defined"}, [2]string{}, ErrConfig},
+		{
+			"project",
+			args{fs: afero.NewBasePathFs(fs, "project")},
+			want{template: "foo"},
+			nil,
+		},
+		{
+			"project_not_found",
+			args{fs: afero.NewBasePathFs(fs, "project_not_found")},
+			want{},
+			ErrNotFound,
+		},
+		{
+			"project_template_not_defined",
+			args{fs: afero.NewBasePathFs(fs, "project_template_not_defined")},
+			want{},
+			ErrConfig,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			prj, err := factory.Create(tt.args.dir)
+			prj, err := factory.Create(tt.args.fs)
 			if err != tt.wantErr {
 				t.Errorf("factory.Create() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if tt.want != [2]string{} {
-				got := [2]string{prj.GetDir(), prj.GetTemplate()}
+			if !reflect.DeepEqual(tt.want, want{}) {
+				got := want{template: prj.GetTemplate()}
 				if !reflect.DeepEqual(got, tt.want) {
 					t.Errorf("factory.Create() got = %v, want %v", got, tt.want)
 				}

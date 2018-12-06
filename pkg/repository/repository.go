@@ -5,7 +5,6 @@ import (
 	"github.com/apex/log"
 	"github.com/spf13/afero"
 	"manala/pkg/template"
-	"path/filepath"
 	"strings"
 )
 
@@ -16,14 +15,14 @@ var (
 )
 
 type Interface interface {
-	GetDir() string
+	GetSrc() string
 	Get(name string) (template.Interface, error)
 	Walk(fn WalkFunc) error
 }
 
-func New(dir string, fs afero.Fs, templateFactory template.FactoryInterface, logger log.Interface) *repository {
+func New(src string, fs afero.Fs, templateFactory template.FactoryInterface, logger log.Interface) *repository {
 	return &repository{
-		dir:             dir,
+		src:             src,
 		fs:              fs,
 		templateFactory: templateFactory,
 		logger:          logger,
@@ -32,15 +31,15 @@ func New(dir string, fs afero.Fs, templateFactory template.FactoryInterface, log
 }
 
 type repository struct {
-	dir             string
+	src             string
 	fs              afero.Fs
 	templateFactory template.FactoryInterface
 	logger          log.Interface
 	templates       map[string]template.Interface
 }
 
-func (rep *repository) GetDir() string {
-	return rep.dir
+func (rep *repository) GetSrc() string {
+	return rep.src
 }
 
 func (rep *repository) Get(name string) (template.Interface, error) {
@@ -52,16 +51,14 @@ func (rep *repository) Get(name string) (template.Interface, error) {
 		return tpl, nil
 	}
 
-	dir := filepath.Join(rep.GetDir(), name)
-
-	if ok, _ := afero.DirExists(rep.fs, dir); !ok {
+	if ok, _ := afero.DirExists(rep.fs, name); !ok {
 		return nil, template.ErrNotFound
 	}
 
 	// Instantiate template
 	tpl, err := rep.templateFactory.Create(
 		name,
-		dir,
+		afero.NewBasePathFs(rep.fs, name),
 	)
 
 	return tpl, err
@@ -71,7 +68,7 @@ type WalkFunc func(tpl template.Interface)
 
 // Walk into templates
 func (rep *repository) Walk(fn WalkFunc) error {
-	files, err := afero.ReadDir(rep.fs, rep.GetDir())
+	files, err := afero.ReadDir(rep.fs, "")
 	if err != nil {
 		rep.logger.WithError(err).Fatal("Error walking into templates")
 	}

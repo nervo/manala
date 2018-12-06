@@ -2,6 +2,7 @@ package project
 
 import (
 	"errors"
+	"github.com/spf13/afero"
 )
 
 var (
@@ -10,8 +11,8 @@ var (
 )
 
 type Interface interface {
+	GetFs() afero.Fs
 	GetTemplate() string
-	GetDir() string
 }
 
 type config struct {
@@ -19,14 +20,14 @@ type config struct {
 }
 
 type project struct {
+	fs     afero.Fs
 	config config
-	dir    string
+}
+
+func (prj *project) GetFs() afero.Fs {
+	return prj.fs
 }
 
 func (prj *project) GetTemplate() string {
 	return prj.config.Template
-}
-
-func (prj *project) GetDir() string {
-	return prj.dir
 }

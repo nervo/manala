@@ -8,29 +8,27 @@ import (
 )
 
 type FactoryInterface interface {
-	Create(dir string) (Interface, error)
+	Create(fs afero.Fs) (Interface, error)
 }
 
-func NewFactory(fs afero.Fs, logger log.Interface) FactoryInterface {
+func NewFactory(logger log.Interface) FactoryInterface {
 	return &factory{
-		fs:     fs,
 		logger: logger,
 	}
 }
 
 type factory struct {
-	fs     afero.Fs
 	logger log.Interface
 }
 
-func (fa *factory) Create(dir string) (Interface, error) {
+func (fa *factory) Create(fs afero.Fs) (Interface, error) {
 	vpr := viper.New()
-	vpr.SetFs(fa.fs)
+	vpr.SetFs(fs)
 
 	vpr.SetConfigName("manala")
-	vpr.AddConfigPath(dir)
+	vpr.AddConfigPath("/")
 
-	fa.logger.WithField("dir", dir).Debug("Reading project config...")
+	fa.logger.Debug("Reading project config...")
 
 	if err := vpr.ReadInConfig(); err != nil {
 		switch err.(type) {
@@ -59,8 +57,8 @@ func (fa *factory) Create(dir string) (Interface, error) {
 	}
 
 	prj := &project{
+		fs:     fs,
 		config: cfg,
-		dir:    dir,
 	}
 
 	return prj, nil
