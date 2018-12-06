@@ -8,6 +8,7 @@ import (
 	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"manala/cmd"
 	"manala/pkg/config"
 	"manala/pkg/project"
@@ -66,12 +67,26 @@ such as makefile targets, virtualization and provisioning files...
 Templates are pulled from git repository.`,
 		Version: version,
 	}
-	rootCmd.PersistentFlags().StringVarP(&cfg.Repository, "repository", "t", cfg.Repository, "repository")
-	rootCmd.PersistentFlags().StringVarP(&cfg.CacheDir, "cache-dir", "c", cfg.CacheDir, "cache dir (default \"$HOME/.manala/cache\")")
-	rootCmd.PersistentFlags().BoolVarP(&cfg.Debug, "debug", "d", cfg.Debug, "debug")
+	rootCmd.PersistentFlags().StringP("repository", "t", cfg.Repository, "repository")
+	rootCmd.PersistentFlags().StringP("cache-dir", "c", cfg.CacheDir, "cache dir (default \"$HOME/.manala/cache\")")
+	rootCmd.PersistentFlags().BoolP("debug", "d", cfg.Debug, "debug")
+
+	// Viper
+	vpr := viper.New()
+	vpr.SetEnvPrefix("manala")
+	vpr.AutomaticEnv()
+	_ = vpr.BindPFlag("repository", rootCmd.PersistentFlags().Lookup("repository"))
+	_ = vpr.BindPFlag("cache_dir", rootCmd.PersistentFlags().Lookup("cache-dir"))
+	_ = vpr.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug"))
 
 	// Initialize
 	cobra.OnInitialize(func() {
+		// Unmarshal config
+		err := vpr.Unmarshal(&cfg)
+		if err != nil {
+			logger.WithError(err).Fatal("Error unmarshalling config")
+		}
+
 		// Debug
 		if cfg.Debug {
 			logger.Level = log.DebugLevel

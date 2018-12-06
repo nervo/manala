@@ -1,7 +1,7 @@
 package config
 
 type Config struct {
-	Debug      bool
-	CacheDir   string
-	Repository string
+	Debug      bool   `mapstructure:"debug"`
+	CacheDir   string `mapstructure:"cache_dir"`
+	Repository string `mapstructure:"repository"`
 }
