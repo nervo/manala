@@ -4,9 +4,8 @@ import (
 	"github.com/apex/log"
 	"github.com/fgrosse/goldi"
 	"github.com/spf13/cobra"
-	"manala/pkg/config"
+	"manala/pkg/manager"
 	"manala/pkg/project"
-	"manala/pkg/repository"
 	"manala/pkg/syncer"
 	"os"
 	"path/filepath"
@@ -54,22 +53,20 @@ type updateOptions struct {
 	Recursive bool
 }
 
-func NewUpdate(projectFinder project.FinderInterface, repositoryStore repository.StoreInterface, syncer syncer.Interface, config *config.Config, logger log.Interface) *update {
+func NewUpdate(projectFinder project.FinderInterface, manager manager.Interface, syncer syncer.Interface, logger log.Interface) *update {
 	return &update{
-		projectFinder:   projectFinder,
-		repositoryStore: repositoryStore,
-		syncer:          syncer,
-		config:          config,
-		logger:          logger,
+		projectFinder: projectFinder,
+		manager:       manager,
+		syncer:        syncer,
+		logger:        logger,
 	}
 }
 
 type update struct {
-	projectFinder   project.FinderInterface
-	repositoryStore repository.StoreInterface
-	syncer          syncer.Interface
-	config          *config.Config
-	logger          log.Interface
+	projectFinder project.FinderInterface
+	manager       manager.Interface
+	syncer        syncer.Interface
+	logger        log.Interface
 }
 
 func (cmd *update) run(dir string, opt updateOptions) {
@@ -110,21 +107,11 @@ func (cmd *update) run(dir string, opt updateOptions) {
 func (cmd *update) updateProject(prj project.Interface) {
 	cmd.logger.WithField("template", prj.GetTemplate()).Info("Project found")
 
-	// Get repository
-	rep, err := cmd.repositoryStore.Get(cmd.config.Repository)
-	if err != nil {
-		cmd.logger.WithError(err).Fatal("Error getting repository")
-	}
-
-	cmd.logger.WithField("src", rep.GetSrc()).Info("Repository gotten")
-
 	// Get template
-	tpl, err := rep.Get(prj.GetTemplate())
+	tpl, err := cmd.manager.Get(prj.GetTemplate())
 	if err != nil {
 		cmd.logger.WithError(err).Fatal("Error getting template")
 	}
-
-	cmd.logger.WithField("name", tpl.GetName()).Info("Template gotten")
 
 	// Sync
 	for _, path := range tpl.GetSync() {

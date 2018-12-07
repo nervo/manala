@@ -84,7 +84,7 @@ func (s *syncer) sync(path string, dst afero.Fs, src afero.Fs) error {
 			// Create directory if needed.
 			dir := filepath.Dir(path)
 			if dir != "." {
-				err =dst.MkdirAll(dir, 0755)
+				err = dst.MkdirAll(dir, 0755)
 				if err != nil {
 					return err
 				}
@@ -124,7 +124,7 @@ func (s *syncer) sync(path string, dst afero.Fs, src afero.Fs) error {
 	// Make dst if necessary
 	if dstat == nil {
 		// Dst does not exist; create directory
-		err =dst.MkdirAll(path, 0755)
+		err = dst.MkdirAll(path, 0755)
 		if err != nil {
 			return err
 		}

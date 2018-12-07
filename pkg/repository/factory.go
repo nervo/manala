@@ -45,7 +45,7 @@ func (fa *factory) Create(src string) (Interface, error) {
 	hash.Write([]byte(src))
 
 	// Repository cache directory should be unique
-	dir := path.Join(fa.cacheDir, "repository", hex.EncodeToString(hash.Sum(nil)))
+	dir := path.Join(fa.cacheDir, hex.EncodeToString(hash.Sum(nil)))
 
 	fa.logger.WithField("dir", fa).Debug("Opening cache repository...")
 

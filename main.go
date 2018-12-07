@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/viper"
 	"manala/cmd"
 	"manala/pkg/config"
+	"manala/pkg/manager"
 	"manala/pkg/project"
 	"manala/pkg/repository"
 	"manala/pkg/syncer"
@@ -97,17 +98,16 @@ Templates are pulled from git repository.`,
 
 		// Container
 		container.RegisterAll(map[string]goldi.TypeFactory{
-			"config":             goldi.NewInstanceType(cfg),
 			"logger":             goldi.NewInstanceType(logger),
 			"fs":                 goldi.NewInstanceType(fs),
 			"project.factory":    goldi.NewType(project.NewFactory, "@logger"),
 			"project.finder":     goldi.NewType(project.NewFinder, "@fs", "@project.factory", "@logger"),
-			"repository.store":   goldi.NewType(repository.NewStore, "@repository.factory", "@logger"),
-			"repository.factory": goldi.NewType(repository.NewFactory, "@fs", "@template.factory", "@logger", cfg.CacheDir, cfg.Debug),
+			"repository.factory": goldi.NewType(repository.NewFactory, "@fs", "@template.factory", "@logger", path.Join(cfg.CacheDir, "repository"), cfg.Debug),
 			"template.factory":   goldi.NewType(template.NewFactory, "@logger"),
+			"manager":            goldi.NewType(manager.New, "@repository.factory", cfg.Repository),
 			"syncer":             goldi.NewType(syncer.New),
-			"cmd.update":         goldi.NewType(cmd.NewUpdate, "@project.finder", "@repository.store", "@syncer", "@config", "@logger"),
-			"cmd.list":           goldi.NewType(cmd.NewList, "@repository.store", "@config", "@logger"),
+			"cmd.update":         goldi.NewType(cmd.NewUpdate, "@project.finder", "@manager", "@syncer", "@logger"),
+			"cmd.list":           goldi.NewType(cmd.NewList, "@manager", "@logger"),
 		})
 
 		val := validation.NewContainerValidator()
