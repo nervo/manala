@@ -7,33 +7,33 @@ import (
 	"path/filepath"
 )
 
-type FinderInterface interface {
+type ManagerInterface interface {
 	Find(dir string) (Interface, error)
 	Walk(dir string, fn WalkFunc) error
 }
 
-func NewFinder(fs afero.Fs, factory FactoryInterface, logger log.Interface) FinderInterface {
-	return &finder{
+func NewManager(fs afero.Fs, factory FactoryInterface, logger log.Interface) ManagerInterface {
+	return &manager{
 		fs:      fs,
 		factory: factory,
 		logger:  logger,
 	}
 }
 
-type finder struct {
+type manager struct {
 	fs      afero.Fs
 	factory FactoryInterface
 	logger  log.Interface
 }
 
 // Find a project by browsing dir then its parents up to root
-func (fi *finder) Find(dir string) (Interface, error) {
+func (mgr *manager) Find(dir string) (Interface, error) {
 	// Todo: oh god... this algorithm sucks... how the hell git do ?
 	lastDir := ""
 	for dir != lastDir {
 		lastDir = dir
-		fi.logger.WithField("dir", dir).Debug("Searching project...")
-		p, err := fi.factory.Create(afero.NewBasePathFs(fi.fs, dir))
+		mgr.logger.WithField("dir", dir).Debug("Searching project...")
+		p, err := mgr.factory.Create(afero.NewBasePathFs(mgr.fs, dir))
 		if err == nil {
 			return p, nil
 		}
@@ -46,15 +46,15 @@ func (fi *finder) Find(dir string) (Interface, error) {
 type WalkFunc func(project Interface)
 
 // Find projects recursively starting from dir
-func (fi *finder) Walk(dir string, fn WalkFunc) error {
+func (mgr *manager) Walk(dir string, fn WalkFunc) error {
 
-	err := afero.Walk(fi.fs, dir, func(path string, info os.FileInfo, err error) error {
+	err := afero.Walk(mgr.fs, dir, func(path string, info os.FileInfo, err error) error {
 		if !info.IsDir() {
 			return nil
 		}
 
-		fi.logger.WithField("path", path).Debug("Searching project...")
-		p, err := fi.factory.Create(afero.NewBasePathFs(fi.fs, path))
+		mgr.logger.WithField("path", path).Debug("Searching project...")
+		p, err := mgr.factory.Create(afero.NewBasePathFs(mgr.fs, path))
 		if err != nil {
 			return nil
 		}

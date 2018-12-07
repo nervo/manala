@@ -4,9 +4,9 @@ import (
 	"github.com/apex/log"
 	"github.com/fgrosse/goldi"
 	"github.com/spf13/cobra"
-	"manala/pkg/manager"
 	"manala/pkg/project"
 	"manala/pkg/syncer"
+	"manala/pkg/template"
 	"os"
 	"path/filepath"
 )
@@ -53,20 +53,20 @@ type updateOptions struct {
 	Recursive bool
 }
 
-func NewUpdate(projectFinder project.FinderInterface, manager manager.Interface, syncer syncer.Interface, logger log.Interface) *update {
+func NewUpdate(projectManager project.ManagerInterface, templateManager template.ManagerInterface, syncer syncer.Interface, logger log.Interface) *update {
 	return &update{
-		projectFinder: projectFinder,
-		manager:       manager,
-		syncer:        syncer,
-		logger:        logger,
+		projectManager:  projectManager,
+		templateManager: templateManager,
+		syncer:          syncer,
+		logger:          logger,
 	}
 }
 
 type update struct {
-	projectFinder project.FinderInterface
-	manager       manager.Interface
-	syncer        syncer.Interface
-	logger        log.Interface
+	projectManager  project.ManagerInterface
+	templateManager template.ManagerInterface
+	syncer          syncer.Interface
+	logger          log.Interface
 }
 
 func (cmd *update) run(dir string, opt updateOptions) {
@@ -90,12 +90,12 @@ func (cmd *update) run(dir string, opt updateOptions) {
 	}
 
 	if opt.Recursive {
-		err = cmd.projectFinder.Walk(dir, cmd.updateProject)
+		err = cmd.projectManager.Walk(dir, cmd.updateProject)
 		if err != nil {
 			cmd.logger.WithError(err).Fatal("Error finding projects recursively")
 		}
 	} else {
-		prj, err := cmd.projectFinder.Find(dir)
+		prj, err := cmd.projectManager.Find(dir)
 		if err != nil {
 			cmd.logger.WithError(err).Fatal("Error finding project")
 		}
@@ -108,7 +108,7 @@ func (cmd *update) updateProject(prj project.Interface) {
 	cmd.logger.WithField("template", prj.GetTemplate()).Info("Project found")
 
 	// Get template
-	tpl, err := cmd.manager.Get(prj.GetTemplate())
+	tpl, err := cmd.templateManager.Get(prj.GetTemplate())
 	if err != nil {
 		cmd.logger.WithError(err).Fatal("Error getting template")
 	}
