@@ -1,39 +1,25 @@
 package repository
 
 import (
-	"crypto/md5"
-	"encoding/hex"
 	"github.com/apex/log"
-	"github.com/spf13/afero"
-	"gopkg.in/src-d/go-git.v4"
-	"gopkg.in/src-d/go-git.v4/plumbing/protocol/packp/sideband"
-	"manala/pkg/template"
-	"os"
-	"path"
 )
 
 type StoreInterface interface {
 	Get(src string) (Interface, error)
 }
 
-func NewStore(fs afero.Fs, templateFactory template.FactoryInterface, logger log.Interface, cacheDir string, debug bool) StoreInterface {
+func NewStore(factory FactoryInterface, logger log.Interface) StoreInterface {
 	return &store{
-		fs:              fs,
-		templateFactory: templateFactory,
-		logger:          logger,
-		repositories:    make(map[string]Interface),
-		cacheDir:        cacheDir,
-		debug:           debug,
+		factory:      factory,
+		logger:       logger,
+		repositories: make(map[string]Interface),
 	}
 }
 
 type store struct {
-	fs              afero.Fs
-	templateFactory template.FactoryInterface
-	logger          log.Interface
-	repositories    map[string]Interface
-	cacheDir        string
-	debug           bool
+	factory      FactoryInterface
+	logger       log.Interface
+	repositories map[string]Interface
 }
 
 func (str *store) Get(src string) (Interface, error) {
@@ -45,71 +31,11 @@ func (str *store) Get(src string) (Interface, error) {
 		return r, nil
 	}
 
-	// Send git progress human readable information to stdout if debug enabled
-	gitProgress := sideband.Progress(nil)
-	if str.debug {
-		gitProgress = os.Stdout
-	}
-
-	hash := md5.New()
-	hash.Write([]byte(src))
-
-	// Repository cache directory should be unique
-	dir := path.Join(str.cacheDir, "repository", hex.EncodeToString(hash.Sum(nil)))
-
-	str.logger.WithField("dir", dir).Debug("Opening cache repository...")
-
-	gitRepository, err := git.PlainOpen(dir)
-
-	if err != nil {
-		switch err {
-		case git.ErrRepositoryNotExists:
-			str.logger.Debug("Cloning cache git repository...")
-
-			gitRepository, err = git.PlainClone(dir, false, &git.CloneOptions{
-				URL:               src,
-				RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
-				Progress:          gitProgress,
-			})
-
-			if err != nil {
-				return nil, ErrUnclonable
-			}
-		default:
-			return nil, ErrUnopenable
-		}
-	} else {
-		str.logger.Debug("Getting cache git repository worktree...")
-
-		gitRepositoryWorktree, err := gitRepository.Worktree()
-
-		if err != nil {
-			return nil, ErrInvalid
-		}
-
-		str.logger.Debug("Pulling cache git repository worktree...")
-
-		err = gitRepositoryWorktree.Pull(&git.PullOptions{
-			RemoteName: "origin",
-			Progress:   gitProgress,
-		})
-
-		if err != nil {
-			switch err {
-			case git.NoErrAlreadyUpToDate:
-			default:
-				return nil, err
-			}
-		}
-	}
-
 	// Instantiate repository
-	rep := New(
-		src,
-		afero.NewBasePathFs(str.fs, dir),
-		str.templateFactory,
-		str.logger,
-	)
+	rep, err := str.factory.Create(src)
+	if err != nil {
+		return nil, err
+	}
 
 	// Store repository
 	str.repositories[src] = rep

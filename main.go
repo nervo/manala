@@ -97,16 +97,17 @@ Templates are pulled from git repository.`,
 
 		// Container
 		container.RegisterAll(map[string]goldi.TypeFactory{
-			"config":           goldi.NewInstanceType(cfg),
-			"logger":           goldi.NewInstanceType(logger),
-			"fs":               goldi.NewInstanceType(fs),
-			"project.factory":  goldi.NewType(project.NewFactory, "@logger"),
-			"project.finder":   goldi.NewType(project.NewFinder, "@fs", "@project.factory", "@logger"),
-			"repository.store": goldi.NewType(repository.NewStore, "@fs", "@template.factory", "@logger", cfg.CacheDir, cfg.Debug),
-			"template.factory": goldi.NewType(template.NewFactory, "@logger"),
-			"syncer":           goldi.NewType(syncer.New),
-			"cmd.update":       goldi.NewType(cmd.NewUpdate, "@project.finder", "@repository.store", "@syncer", "@config", "@logger"),
-			"cmd.list":         goldi.NewType(cmd.NewList, "@repository.store", "@config", "@logger"),
+			"config":             goldi.NewInstanceType(cfg),
+			"logger":             goldi.NewInstanceType(logger),
+			"fs":                 goldi.NewInstanceType(fs),
+			"project.factory":    goldi.NewType(project.NewFactory, "@logger"),
+			"project.finder":     goldi.NewType(project.NewFinder, "@fs", "@project.factory", "@logger"),
+			"repository.store":   goldi.NewType(repository.NewStore, "@repository.factory", "@logger"),
+			"repository.factory": goldi.NewType(repository.NewFactory, "@fs", "@template.factory", "@logger", cfg.CacheDir, cfg.Debug),
+			"template.factory":   goldi.NewType(template.NewFactory, "@logger"),
+			"syncer":             goldi.NewType(syncer.New),
+			"cmd.update":         goldi.NewType(cmd.NewUpdate, "@project.finder", "@repository.store", "@syncer", "@config", "@logger"),
+			"cmd.list":           goldi.NewType(cmd.NewList, "@repository.store", "@config", "@logger"),
 		})
 
 		val := validation.NewContainerValidator()
