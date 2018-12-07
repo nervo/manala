@@ -7,7 +7,6 @@ import (
 	"github.com/spf13/afero"
 	"gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/plumbing/protocol/packp/sideband"
-	"manala/pkg/config"
 	"manala/pkg/template"
 	"os"
 	"path"
@@ -17,22 +16,24 @@ type StoreInterface interface {
 	Get(src string) (Interface, error)
 }
 
-func NewStore(config *config.Config, fs afero.Fs, templateFactory template.FactoryInterface, logger log.Interface) StoreInterface {
+func NewStore(fs afero.Fs, templateFactory template.FactoryInterface, logger log.Interface, cacheDir string, debug bool) StoreInterface {
 	return &store{
-		config:          config,
 		fs:              fs,
 		templateFactory: templateFactory,
 		logger:          logger,
 		repositories:    make(map[string]Interface),
+		cacheDir:        cacheDir,
+		debug:           debug,
 	}
 }
 
 type store struct {
-	config          *config.Config
 	fs              afero.Fs
 	templateFactory template.FactoryInterface
 	logger          log.Interface
 	repositories    map[string]Interface
+	cacheDir        string
+	debug           bool
 }
 
 func (str *store) Get(src string) (Interface, error) {
@@ -46,7 +47,7 @@ func (str *store) Get(src string) (Interface, error) {
 
 	// Send git progress human readable information to stdout if debug enabled
 	gitProgress := sideband.Progress(nil)
-	if str.config.Debug {
+	if str.debug {
 		gitProgress = os.Stdout
 	}
 
@@ -54,7 +55,7 @@ func (str *store) Get(src string) (Interface, error) {
 	hash.Write([]byte(src))
 
 	// Repository cache directory should be unique
-	dir := path.Join(str.config.CacheDir, "repository", hex.EncodeToString(hash.Sum(nil)))
+	dir := path.Join(str.cacheDir, "repository", hex.EncodeToString(hash.Sum(nil)))
 
 	str.logger.WithField("dir", dir).Debug("Opening cache repository...")
 
