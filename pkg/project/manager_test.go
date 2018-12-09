@@ -8,18 +8,18 @@ import (
 	"testing"
 )
 
-func Test_finder_Find(t *testing.T) {
+func Test_manager_Find(t *testing.T) {
 	// File system
 	fs := afero.NewBasePathFs(
 		afero.NewOsFs(),
-		"testdata/finder",
+		"testdata/manager",
 	)
 	// Logger
 	logger := &log.Logger{
 		Handler: discard.Default,
 	}
-	// Finder
-	finder := NewFinder(
+	// Manager
+	manager := NewManager(
 		fs,
 		NewFactory(
 			logger,
@@ -60,33 +60,33 @@ func Test_finder_Find(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			prj, err := finder.Find(tt.args.dir)
+			prj, err := manager.Find(tt.args.dir)
 			if err != tt.wantErr {
-				t.Errorf("finder.Find() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("manager.Find() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if tt.want != (want{}) {
 				got := want{template: prj.GetTemplate()}
 				if !reflect.DeepEqual(got, tt.want) {
-					t.Errorf("finder.Find() got = %v, want %v", got, tt.want)
+					t.Errorf("manager.Find() got = %v, want %v", got, tt.want)
 				}
 			}
 		})
 	}
 }
 
-func Test_finder_Walk(t *testing.T) {
+func Test_manager_Walk(t *testing.T) {
 	// File system
 	fs := afero.NewBasePathFs(
 		afero.NewOsFs(),
-		"testdata/finder",
+		"testdata/manager",
 	)
 	// Logger
 	logger := &log.Logger{
 		Handler: discard.Default,
 	}
-	// Finder
-	finder := NewFinder(
+	// Manager
+	manager := NewManager(
 		fs,
 		NewFactory(
 			logger,
@@ -116,15 +116,15 @@ func Test_finder_Walk(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := make([]want, 0)
-			err := finder.Walk(tt.args.dir, func(prj Interface) {
+			err := manager.Walk(tt.args.dir, func(prj Interface) {
 				got = append(got, want{template: prj.GetTemplate()})
 			})
 			if err != tt.wantErr {
-				t.Errorf("finder.Walk() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("manager.Walk() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("finder.Walk() got = %v, want %v", got, tt.want)
+				t.Errorf("manager.Walk() got = %v, want %v", got, tt.want)
 			}
 		})
 	}

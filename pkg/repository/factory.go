@@ -7,34 +7,53 @@ import (
 	"github.com/spf13/afero"
 	"gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/plumbing/protocol/packp/sideband"
-	"manala/pkg/template"
 	"os"
 	"path"
+	"path/filepath"
 )
 
 type FactoryInterface interface {
 	Create(src string) (Interface, error)
 }
 
-func NewFactory(fs afero.Fs, templateFactory template.FactoryInterface, logger log.Interface, cacheDir string, debug bool) FactoryInterface {
+func NewFactory(fs afero.Fs, logger log.Interface, cacheDir string, debug bool) FactoryInterface {
 	return &factory{
-		fs:              fs,
-		templateFactory: templateFactory,
-		logger:          logger,
-		cacheDir:        cacheDir,
-		debug:           debug,
+		fs:       fs,
+		logger:   logger,
+		cacheDir: cacheDir,
+		debug:    debug,
 	}
 }
 
 type factory struct {
-	fs              afero.Fs
-	templateFactory template.FactoryInterface
-	logger          log.Interface
-	cacheDir        string
-	debug           bool
+	fs       afero.Fs
+	logger   log.Interface
+	cacheDir string
+	debug    bool
 }
 
 func (fa *factory) Create(src string) (Interface, error) {
+	switch {
+	case filepath.Ext(src) == ".git":
+		return fa.createGit(src)
+	}
+
+	return fa.createDirectory(src)
+}
+
+func (fa *factory) createDirectory(src string) (Interface, error) {
+	// Todo: ensure src exists...
+
+	// Instantiate repository
+	rep := &repository{
+		src: src,
+		fs:  afero.NewBasePathFs(fa.fs, src),
+	}
+
+	return rep, nil
+}
+
+func (fa *factory) createGit(src string) (Interface, error) {
 	// Send git progress human readable information to stdout if debug enabled
 	gitProgress := sideband.Progress(nil)
 	if fa.debug {
@@ -94,12 +113,10 @@ func (fa *factory) Create(src string) (Interface, error) {
 	}
 
 	// Instantiate repository
-	rep := New(
-		src,
-		afero.NewBasePathFs(fa.fs, dir),
-		fa.templateFactory,
-		fa.logger,
-	)
+	rep := &repository{
+		src: src,
+		fs:  afero.NewBasePathFs(fa.fs, dir),
+	}
 
 	return rep, nil
 }
