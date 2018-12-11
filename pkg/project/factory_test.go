@@ -27,7 +27,7 @@ func Test_factory_Create(t *testing.T) {
 		fs afero.Fs
 	}
 	type want struct {
-		template string
+		template   string
 		repository string
 	}
 	tests := []struct {

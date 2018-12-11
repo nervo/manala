@@ -17,7 +17,7 @@ type Interface interface {
 }
 
 type config struct {
-	Template string `mapstructure:"template" valid:"required"`
+	Template   string `mapstructure:"template" valid:"required"`
 	Repository string `mapstructure:"repository"`
 }
 

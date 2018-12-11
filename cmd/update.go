@@ -107,8 +107,15 @@ func (cmd *update) run(dir string, opt updateOptions) {
 func (cmd *update) updateProject(prj project.Interface) {
 	cmd.logger.WithField("template", prj.GetTemplate()).Info("Project found")
 
+	templateManager := cmd.templateManager
+
+	// Custom project repository
+	if prj.GetRepository() != "" {
+		templateManager = templateManager.WithRepositorySrc(prj.GetRepository())
+	}
+
 	// Get template
-	tpl, err := cmd.templateManager.Get(prj.GetTemplate())
+	tpl, err := templateManager.Get(prj.GetTemplate())
 	if err != nil {
 		cmd.logger.WithError(err).Fatal("Error getting template")
 	}

@@ -10,26 +10,33 @@ import (
 type ManagerInterface interface {
 	Walk(fn ManagerWalkFunc) error
 	Get(name string) (Interface, error)
+	WithRepositorySrc(src string) ManagerInterface
 }
 
 func NewManager(repositoryFactory repository.FactoryInterface, templateFactory FactoryInterface, logger log.Interface, repositorySrc string) ManagerInterface {
 	return &manager{
-		repositoryFactory: repositoryFactory,
-		templateFactory:   templateFactory,
-		logger:            logger,
-		repositorySrc:     repositorySrc,
-		repositories:      make(map[string]repository.Interface),
-		templates:         make(map[string]Interface),
+		managerCore: &managerCore{
+			repositoryFactory: repositoryFactory,
+			templateFactory:   templateFactory,
+			logger:            logger,
+			repositories:      make(map[string]repository.Interface),
+			templates:         make(map[string]Interface),
+		},
+		repositorySrc: repositorySrc,
 	}
 }
 
-type manager struct {
+type managerCore struct {
 	repositoryFactory repository.FactoryInterface
 	templateFactory   FactoryInterface
 	logger            log.Interface
-	repositorySrc     string
 	repositories      map[string]repository.Interface
 	templates         map[string]Interface
+}
+
+type manager struct {
+	*managerCore
+	repositorySrc string
 }
 
 // Get repository
@@ -122,4 +129,12 @@ func (mgr *manager) Get(name string) (Interface, error) {
 	}
 
 	return mgr.getTemplate(name, rep)
+}
+
+// With repository source
+func (mgr *manager) WithRepositorySrc(src string) ManagerInterface {
+	return &manager{
+		managerCore:   mgr.managerCore,
+		repositorySrc: src,
+	}
 }
