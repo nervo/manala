@@ -28,6 +28,7 @@ func Test_factory_Create(t *testing.T) {
 	}
 	type want struct {
 		template string
+		repository string
 	}
 	tests := []struct {
 		name    string
@@ -38,7 +39,13 @@ func Test_factory_Create(t *testing.T) {
 		{
 			"project",
 			args{fs: afero.NewBasePathFs(fs, "project")},
-			want{template: "foo"},
+			want{template: "foo", repository: ""},
+			nil,
+		},
+		{
+			"project_repository",
+			args{fs: afero.NewBasePathFs(fs, "project_repository")},
+			want{template: "foo", repository: "foo.git"},
 			nil,
 		},
 		{
@@ -62,7 +69,7 @@ func Test_factory_Create(t *testing.T) {
 				return
 			}
 			if !reflect.DeepEqual(tt.want, want{}) {
-				got := want{template: prj.GetTemplate()}
+				got := want{template: prj.GetTemplate(), repository: prj.GetRepository()}
 				if !reflect.DeepEqual(got, tt.want) {
 					t.Errorf("factory.Create() got = %v, want %v", got, tt.want)
 				}
