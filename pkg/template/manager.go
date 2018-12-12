@@ -10,26 +10,33 @@ import (
 type ManagerInterface interface {
 	Walk(fn ManagerWalkFunc) error
 	Get(name string) (Interface, error)
+	WithRepositorySrc(src string) ManagerInterface
 }
 
 func NewManager(repositoryFactory repository.FactoryInterface, templateFactory FactoryInterface, logger log.Interface, repositorySrc string) ManagerInterface {
 	return &manager{
-		repositoryFactory: repositoryFactory,
-		templateFactory:   templateFactory,
-		logger:            logger,
-		repositorySrc:     repositorySrc,
-		repositories:      make(map[string]repository.Interface),
-		templates:         make(map[string]Interface),
+		managerCore: &managerCore{
+			repositoryFactory: repositoryFactory,
+			templateFactory:   templateFactory,
+			logger:            logger,
+			repositories:      make(map[string]repository.Interface),
+			templates:         make(map[string]map[string]Interface),
+		},
+		repositorySrc: repositorySrc,
 	}
 }
 
-type manager struct {
+type managerCore struct {
 	repositoryFactory repository.FactoryInterface
 	templateFactory   FactoryInterface
 	logger            log.Interface
-	repositorySrc     string
 	repositories      map[string]repository.Interface
-	templates         map[string]Interface
+	templates         map[string]map[string]Interface
+}
+
+type manager struct {
+	*managerCore
+	repositorySrc string
 }
 
 // Get repository
@@ -54,8 +61,15 @@ func (mgr *manager) getRepository(src string) (repository.Interface, error) {
 
 // Get template
 func (mgr *manager) getTemplate(name string, rep repository.Interface) (Interface, error) {
+
+	templates, ok := mgr.templates[rep.GetSrc()]
+	if !ok {
+		mgr.templates[rep.GetSrc()] = make(map[string]Interface)
+		templates = mgr.templates[rep.GetSrc()]
+	}
+
 	// Check if template already in store
-	if tpl, ok := mgr.templates[name]; ok {
+	if tpl, ok := templates[name]; ok {
 		return tpl, nil
 	}
 
@@ -75,7 +89,7 @@ func (mgr *manager) getTemplate(name string, rep repository.Interface) (Interfac
 	}
 
 	// Store template
-	mgr.templates[name] = tpl
+	templates[name] = tpl
 
 	return tpl, nil
 }
@@ -122,4 +136,12 @@ func (mgr *manager) Get(name string) (Interface, error) {
 	}
 
 	return mgr.getTemplate(name, rep)
+}
+
+// With repository source
+func (mgr *manager) WithRepositorySrc(src string) ManagerInterface {
+	return &manager{
+		managerCore:   mgr.managerCore,
+		repositorySrc: src,
+	}
 }
