@@ -28,8 +28,6 @@ func (fa *factory) Create(fs afero.Fs) (Interface, error) {
 	vpr.SetConfigName("manala")
 	vpr.AddConfigPath("/")
 
-	fa.logger.Debug("Reading project config...")
-
 	if err := vpr.ReadInConfig(); err != nil {
 		switch err.(type) {
 		case viper.ConfigFileNotFoundError, viper.UnsupportedConfigError:

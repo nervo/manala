@@ -53,7 +53,7 @@ func (mgr *manager) Walk(dir string, fn WalkFunc) error {
 			return nil
 		}
 
-		mgr.logger.WithField("path", path).Debug("Searching project...")
+		mgr.logger.WithField("dir", path).Debug("Searching project...")
 		p, err := mgr.factory.Create(afero.NewBasePathFs(mgr.fs, path))
 		if err != nil {
 			return nil

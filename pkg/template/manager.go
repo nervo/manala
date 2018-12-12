@@ -20,7 +20,7 @@ func NewManager(repositoryFactory repository.FactoryInterface, templateFactory F
 			templateFactory:   templateFactory,
 			logger:            logger,
 			repositories:      make(map[string]repository.Interface),
-			templates:         make(map[string]Interface),
+			templates:         make(map[string]map[string]Interface),
 		},
 		repositorySrc: repositorySrc,
 	}
@@ -31,7 +31,7 @@ type managerCore struct {
 	templateFactory   FactoryInterface
 	logger            log.Interface
 	repositories      map[string]repository.Interface
-	templates         map[string]Interface
+	templates         map[string]map[string]Interface
 }
 
 type manager struct {
@@ -61,8 +61,15 @@ func (mgr *manager) getRepository(src string) (repository.Interface, error) {
 
 // Get template
 func (mgr *manager) getTemplate(name string, rep repository.Interface) (Interface, error) {
+
+	templates, ok := mgr.templates[rep.GetSrc()]
+	if !ok {
+		mgr.templates[rep.GetSrc()] = make(map[string]Interface)
+		templates = mgr.templates[rep.GetSrc()]
+	}
+
 	// Check if template already in store
-	if tpl, ok := mgr.templates[name]; ok {
+	if tpl, ok := templates[name]; ok {
 		return tpl, nil
 	}
 
@@ -82,7 +89,7 @@ func (mgr *manager) getTemplate(name string, rep repository.Interface) (Interfac
 	}
 
 	// Store template
-	mgr.templates[name] = tpl
+	templates[name] = tpl
 
 	return tpl, nil
 }
