@@ -14,12 +14,18 @@ type Interface interface {
 	GetName() string
 	GetFs() afero.Fs
 	GetDescription() string
-	GetSync() []string
+	GetSync() []syncUnit
 }
 
 type config struct {
-	Description string   `mapstructure:"description" valid:"required"`
-	Sync        []string `mapstructure:"sync"`
+	Description string     `mapstructure:"description" valid:"required"`
+	Sync        []syncUnit `mapstructure:"sync"`
+}
+
+type syncUnit struct {
+	Source      string `mapstructure:"source"`
+	Destination string `mapstructure:"destination"`
+	Template    string `mapstructure:"template"`
 }
 
 type template struct {
@@ -40,6 +46,6 @@ func (tpl *template) GetDescription() string {
 	return tpl.config.Description
 }
 
-func (tpl *template) GetSync() []string {
+func (tpl *template) GetSync() []syncUnit {
 	return tpl.config.Sync
 }

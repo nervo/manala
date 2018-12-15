@@ -106,7 +106,7 @@ func (cmd *update) run(dir string, opt updateOptions) {
 
 func (cmd *update) updateProject(prj project.Interface) {
 	cmd.logger.WithFields(log.Fields{
-		"template": prj.GetTemplate(),
+		"template":   prj.GetTemplate(),
 		"repository": prj.GetRepository(),
 	}).Info("Project found")
 
@@ -124,8 +124,16 @@ func (cmd *update) updateProject(prj project.Interface) {
 	}
 
 	// Sync
-	for _, path := range tpl.GetSync() {
-		err = cmd.syncer.Sync(path, prj.GetFs(), tpl.GetFs())
+	for _, u := range tpl.GetSync() {
+		srcFs := tpl.GetFs()
+		if u.Template != "" {
+			srcTpl, err := templateManager.Get(u.Template)
+			if err != nil {
+				cmd.logger.WithError(err).Fatal("Error getting sync template")
+			}
+			srcFs = srcTpl.GetFs()
+		}
+		err = cmd.syncer.Sync(u.Destination, prj.GetFs(), u.Source, srcFs)
 		if err != nil {
 			cmd.logger.WithError(err).Fatal("Error syncing project")
 		}

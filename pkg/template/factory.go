@@ -3,8 +3,11 @@ package template
 import (
 	"github.com/apex/log"
 	"github.com/asaskevich/govalidator"
+	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/afero"
 	"github.com/spf13/viper"
+	"reflect"
+	"strings"
 )
 
 type FactoryInterface interface {
@@ -45,7 +48,14 @@ func (fa *factory) Create(name string, fs afero.Fs) (Interface, error) {
 	var cfg config
 
 	// Unmarshalling
-	if err := vpr.Unmarshal(&cfg); err != nil {
+	err := vpr.Unmarshal(&cfg, viper.DecodeHook(
+		mapstructure.ComposeDecodeHookFunc(
+			mapstructure.StringToTimeDurationHookFunc(),
+			mapstructure.StringToSliceHookFunc(","),
+			stringToSyncUnitHookFunc(),
+		),
+	))
+	if err != nil {
 		return nil, err
 	}
 
@@ -62,4 +72,43 @@ func (fa *factory) Create(name string, fs afero.Fs) (Interface, error) {
 	}
 
 	return tpl, nil
+}
+
+// Returns a DecodeHookFunc that converts strings to syncUnit
+func stringToSyncUnitHookFunc() mapstructure.DecodeHookFunc {
+	return func(rf reflect.Type, rt reflect.Type, data interface{}) (interface{}, error) {
+		if rf.Kind() != reflect.String {
+			return data, nil
+		}
+		if rt != reflect.TypeOf(syncUnit{}) {
+			return data, nil
+		}
+
+		src := data.(string)
+		dst := src
+		tpl := ""
+
+		// Separate source / destination
+		u := strings.Split(src, " ")
+		if len(u) > 1 {
+			src = u[0]
+			dst = u[1]
+		}
+
+		// Separate template / source
+		v := strings.Split(src, ":")
+		if len(v) > 1 {
+			tpl = v[0]
+			src = v[1]
+			if len(u) < 2 {
+				dst = src
+			}
+		}
+
+		return syncUnit{
+			Source:      src,
+			Destination: dst,
+			Template:    tpl,
+		}, nil
+	}
 }
