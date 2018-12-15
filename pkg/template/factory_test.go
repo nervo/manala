@@ -30,7 +30,7 @@ func Test_factory_Create(t *testing.T) {
 	type want struct {
 		name        string
 		description string
-		sync        []string
+		sync        []syncUnit
 	}
 	tests := []struct {
 		name    string
@@ -41,7 +41,12 @@ func Test_factory_Create(t *testing.T) {
 		{
 			"template",
 			args{name: "foo", fs: afero.NewBasePathFs(fs, "template")},
-			want{name: "foo", description: "Foo", sync: []string{"foo", "bar"}},
+			want{name: "foo", description: "Foo", sync: []syncUnit{
+				{Source: "foo", Destination: "foo"},
+				{Source: "foo", Destination: "bar"},
+				{Source: "bar", Destination: "bar", Template: "foo"},
+				{Source: "bar", Destination: "baz", Template: "foo"},
+			}},
 			nil,
 		},
 	}

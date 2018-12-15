@@ -15,7 +15,7 @@ var (
 )
 
 type Interface interface {
-	Sync(path string, dst afero.Fs, src afero.Fs) error
+	Sync(dst string, dstFs afero.Fs, src string, srcFs afero.Fs) error
 }
 
 func New() Interface {
@@ -32,31 +32,31 @@ type syncer struct {
 	noTimes bool
 }
 
-func (s *syncer) Sync(path string, dst afero.Fs, src afero.Fs) error {
-	// Make sure src path exists
-	if _, err := src.Stat(path); err != nil {
+func (snc *syncer) Sync(dst string, dstFs afero.Fs, src string, srcFs afero.Fs) error {
+	// Make sure src exists
+	if _, err := srcFs.Stat(src); err != nil {
 		return err
 	}
 	// Return error instead of replacing a non-empty directory with a file
-	if b, err := s.checkDir(path, dst, src); err != nil {
+	if b, err := snc.checkDir(dst, dstFs, src, srcFs); err != nil {
 		return err
 	} else if b {
 		return ErrFileOverDir
 	}
 
-	return s.sync(path, dst, src)
+	return snc.sync(dst, dstFs, src, srcFs)
 }
 
 // Updates dst to match with src, handling both files and directories.
-func (s *syncer) sync(path string, dst afero.Fs, src afero.Fs) error {
+func (snc *syncer) sync(dst string, dstFs afero.Fs, src string, srcFs afero.Fs) error {
 
 	// Read files info
-	dstat, err := dst.Stat(path)
+	dstat, err := dstFs.Stat(dst)
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
 
-	sstat, err := src.Stat(path)
+	sstat, err := srcFs.Stat(src)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil
@@ -69,36 +69,36 @@ func (s *syncer) sync(path string, dst afero.Fs, src afero.Fs) error {
 		// Src is a file
 		// Delete dst if its a directory
 		if dstat != nil && dstat.IsDir() {
-			err = dst.RemoveAll(path)
+			err = dstFs.RemoveAll(dst)
 			if err != nil {
 				return err
 			}
 		}
 
-		eq, err := s.equal(path, dst, src)
+		eq, err := snc.equal(dst, dstFs, src, srcFs)
 		if err != nil {
 			return err
 		}
 
 		if !eq {
 			// Create directory if needed.
-			dir := filepath.Dir(path)
+			dir := filepath.Dir(dst)
 			if dir != "." {
-				err = dst.MkdirAll(dir, 0755)
+				err = dstFs.MkdirAll(dir, 0755)
 				if err != nil {
 					return err
 				}
 			}
 
 			// Perform copy
-			df, err := dst.Create(path)
+			df, err := dstFs.Create(dst)
 			if err != nil {
 				return err
 			}
 
 			defer df.Close()
 
-			sf, err := src.Open(path)
+			sf, err := srcFs.Open(src)
 			if os.IsNotExist(err) {
 				return nil
 			}
@@ -124,25 +124,25 @@ func (s *syncer) sync(path string, dst afero.Fs, src afero.Fs) error {
 	// Make dst if necessary
 	if dstat == nil {
 		// Dst does not exist; create directory
-		err = dst.MkdirAll(path, 0755)
+		err = dstFs.MkdirAll(dst, 0755)
 		if err != nil {
 			return err
 		}
 	} else if !dstat.IsDir() {
 		// Dst is a file; remove and create directory
-		err = dst.Remove(path)
+		err = dstFs.Remove(dst)
 		if err != nil {
 			return err
 		}
 
-		err = dst.MkdirAll(path, 0755)
+		err = dstFs.MkdirAll(dst, 0755)
 		if err != nil {
 			return err
 		}
 	}
 
 	// Go through sf files and sync them
-	files, err := afero.ReadDir(src, path)
+	files, err := afero.ReadDir(srcFs, src)
 	if os.IsNotExist(err) {
 		return nil
 	}
@@ -154,23 +154,24 @@ func (s *syncer) sync(path string, dst afero.Fs, src afero.Fs) error {
 	// Deletion below
 	m := make(map[string]bool, len(files))
 	for _, file := range files {
-		path2 := filepath.Join(path, file.Name())
-		if err = s.sync(path2, dst, src); err != nil {
+		dst2 := filepath.Join(dst, file.Name())
+		src2 := filepath.Join(src, file.Name())
+		if err = snc.sync(dst2, dstFs, src2, srcFs); err != nil {
 			return err
 		}
 		m[file.Name()] = true
 	}
 
 	// Delete files from dst that does not exist in src
-	if s.delete {
-		files, err = afero.ReadDir(dst, path)
+	if snc.delete {
+		files, err = afero.ReadDir(dstFs, dst)
 		if err != nil {
 			return err
 		}
 
 		for _, file := range files {
 			if !m[file.Name()] {
-				err = dst.RemoveAll(filepath.Join(path, file.Name()))
+				err = dstFs.RemoveAll(filepath.Join(dst, file.Name()))
 				if err != nil {
 					return err
 				}
@@ -182,62 +183,62 @@ func (s *syncer) sync(path string, dst afero.Fs, src afero.Fs) error {
 }
 
 // Returns true if both files are equal
-func (s *syncer) equal(path string, a afero.Fs, b afero.Fs) (bool, error) {
+func (snc *syncer) equal(dst string, dstFs afero.Fs, src string, srcFs afero.Fs) (bool, error) {
 	// Get file infos
-	info1, err1 := a.Stat(path)
-	info2, err2 := b.Stat(path)
-	if os.IsNotExist(err1) || os.IsNotExist(err2) {
+	dstInfo, dstErr := dstFs.Stat(dst)
+	srcInfo, srcErr := srcFs.Stat(src)
+	if os.IsNotExist(dstErr) || os.IsNotExist(srcErr) {
 		return false, nil
 	}
-	if err1 != nil {
-		return false, err1
+	if dstErr != nil {
+		return false, dstErr
 	}
-	if err2 != nil {
-		return false, err2
+	if srcErr != nil {
+		return false, srcErr
 	}
 
 	// Check sizes
-	if info1.Size() != info2.Size() {
+	if dstInfo.Size() != srcInfo.Size() {
 		return false, nil
 	}
 
 	// Both have the same size, check the contents
-	f1, err := a.Open(path)
+	dstFile, err := dstFs.Open(dst)
 	if err != nil {
 		return false, err
 	}
 
-	defer f1.Close()
+	defer dstFile.Close()
 
-	f2, err := b.Open(path)
+	srcFile, err := srcFs.Open(src)
 	if err != nil {
 		return false, err
 	}
 
-	defer f2.Close()
+	defer srcFile.Close()
 
-	buf1 := make([]byte, 1000)
-	buf2 := make([]byte, 1000)
+	dstBuf := make([]byte, 1000)
+	srcBuf := make([]byte, 1000)
 
 	for {
 		// Read from both
-		n1, err := f1.Read(buf1)
+		dstNb, err := dstFile.Read(dstBuf)
 		if err != nil && err != io.EOF {
 			return false, err
 		}
 
-		n2, err := f2.Read(buf2)
+		srcNb, err := srcFile.Read(srcBuf)
 		if err != nil && err != io.EOF {
 			return false, err
 		}
 
 		// Compare read bytes
-		if !bytes.Equal(buf1[:n1], buf2[:n2]) {
+		if !bytes.Equal(dstBuf[:dstNb], srcBuf[:srcNb]) {
 			return false, nil
 		}
 
 		// End of both files
-		if n1 == 0 && n2 == 0 {
+		if dstNb == 0 && srcNb == 0 {
 			break
 		}
 	}
@@ -246,16 +247,16 @@ func (s *syncer) equal(path string, a afero.Fs, b afero.Fs) (bool, error) {
 }
 
 // Returns true if dst is a non-empty directory and src is a file
-func (s *syncer) checkDir(path string, dst afero.Fs, src afero.Fs) (bool, error) {
+func (snc *syncer) checkDir(dst string, dstFs afero.Fs, src string, srcFs afero.Fs) (bool, error) {
 	// Read file info
-	dstat, err := dst.Stat(path)
+	dstat, err := dstFs.Stat(dst)
 	if os.IsNotExist(err) {
 		return false, nil
 	} else if err != nil {
 		return false, err
 	}
 
-	sstat, err := src.Stat(path)
+	sstat, err := srcFs.Stat(src)
 	if err != nil {
 		return false, err
 	}
@@ -268,7 +269,7 @@ func (s *syncer) checkDir(path string, dst afero.Fs, src afero.Fs) (bool, error)
 	// Dst is a directory and src is a file
 	// Check if dst is non-empty
 	// Read dst directory
-	files, err := afero.ReadDir(dst, path)
+	files, err := afero.ReadDir(dstFs, dst)
 	if err != nil {
 		return false, err
 	}

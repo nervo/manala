@@ -2,4 +2,6 @@ manala:
   description: Foo
   sync:
     - foo
-    - bar
+    - foo bar
+    - foo:bar
+    - foo:bar baz
