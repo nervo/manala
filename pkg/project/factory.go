@@ -25,7 +25,7 @@ func (fa *factory) Create(fs afero.Fs) (Interface, error) {
 	vpr := viper.New()
 	vpr.SetFs(fs)
 
-	vpr.SetConfigName("manala")
+	vpr.SetConfigName(".manala")
 	vpr.AddConfigPath("/")
 
 	if err := vpr.ReadInConfig(); err != nil {
