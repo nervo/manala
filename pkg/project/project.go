@@ -8,6 +8,7 @@ type Interface interface {
 	GetFs() afero.Fs
 	GetTemplate() string
 	GetRepository() string
+	GetOptions() map[string]interface{}
 }
 
 type config struct {
@@ -16,8 +17,9 @@ type config struct {
 }
 
 type project struct {
-	fs     afero.Fs
-	config config
+	fs      afero.Fs
+	config  config
+	options map[string]interface{}
 }
 
 func (prj *project) GetFs() afero.Fs {
@@ -30,4 +32,8 @@ func (prj *project) GetTemplate() string {
 
 func (prj *project) GetRepository() string {
 	return prj.config.Repository
+}
+
+func (prj *project) GetOptions() map[string]interface{} {
+	return prj.options
 }

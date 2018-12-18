@@ -124,6 +124,8 @@ func (cmd *update) updateProject(prj project.Interface) {
 	}
 
 	// Sync
+	cmd.syncer.SetFileHook(syncer.TemplateHook(prj.GetOptions()))
+
 	for _, u := range tpl.GetSync() {
 		srcFs := tpl.GetFs()
 		if u.Template != "" {
