@@ -1,6 +1,7 @@
 package template
 
 import (
+	"errors"
 	"github.com/apex/log"
 	"github.com/asaskevich/govalidator"
 	"github.com/mitchellh/mapstructure"
@@ -8,6 +9,12 @@ import (
 	"github.com/spf13/viper"
 	"reflect"
 	"strings"
+)
+
+var (
+	Err         = errors.New("template error")
+	ErrNotFound = errors.New("template not found")
+	ErrConfig   = errors.New("template config invalid")
 )
 
 type FactoryInterface interface {
@@ -28,8 +35,10 @@ func (fa *factory) Create(name string, fs afero.Fs) (Interface, error) {
 	vpr := viper.New()
 	vpr.SetFs(fs)
 
-	vpr.SetConfigName(".manala")
 	vpr.AddConfigPath("/")
+
+	// Main config
+	vpr.SetConfigName(".manala")
 
 	if err := vpr.ReadInConfig(); err != nil {
 		switch err.(type) {
@@ -37,8 +46,23 @@ func (fa *factory) Create(name string, fs afero.Fs) (Interface, error) {
 			return nil, ErrNotFound
 		case viper.ConfigParseError:
 			return nil, ErrConfig
+		default:
+			return nil, Err
 		}
-		return nil, ErrNotFound
+	}
+
+	// Local config (optional)
+	vpr.SetConfigName(".manala.local")
+
+	if err := vpr.MergeInConfig(); err != nil {
+		switch err.(type) {
+		case viper.ConfigFileNotFoundError, viper.UnsupportedConfigError:
+			// Do nothing, as local config is optional
+		case viper.ConfigParseError:
+			return nil, ErrConfig
+		default:
+			return nil, Err
+		}
 	}
 
 	if vpr = vpr.Sub("manala"); vpr == nil {

@@ -4,7 +4,7 @@ import (
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/discard"
 	"github.com/spf13/afero"
-	"reflect"
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -43,6 +43,12 @@ func Test_factory_Create(t *testing.T) {
 			nil,
 		},
 		{
+			"project_local",
+			args{fs: afero.NewBasePathFs(fs, "project_local")},
+			want{template: "bar", repository: ""},
+			nil,
+		},
+		{
 			"project_repository",
 			args{fs: afero.NewBasePathFs(fs, "project_repository")},
 			want{template: "foo", repository: "foo.git"},
@@ -55,6 +61,12 @@ func Test_factory_Create(t *testing.T) {
 			ErrNotFound,
 		},
 		{
+			"project_invalid",
+			args{fs: afero.NewBasePathFs(fs, "project_invalid")},
+			want{},
+			ErrConfig,
+		},
+		{
 			"project_template_not_defined",
 			args{fs: afero.NewBasePathFs(fs, "project_template_not_defined")},
 			want{},
@@ -64,15 +76,11 @@ func Test_factory_Create(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			prj, err := factory.Create(tt.args.fs)
-			if err != tt.wantErr {
-				t.Errorf("factory.Create() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(tt.want, want{}) {
-				got := want{template: prj.GetTemplate(), repository: prj.GetRepository()}
-				if !reflect.DeepEqual(got, tt.want) {
-					t.Errorf("factory.Create() got = %v, want %v", got, tt.want)
-				}
+			assert.IsType(t, tt.wantErr, err)
+
+			if err == nil {
+				assert.Equal(t, tt.want.template, prj.GetTemplate())
+				assert.Equal(t, tt.want.repository, prj.GetRepository())
 			}
 		})
 	}

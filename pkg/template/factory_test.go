@@ -4,7 +4,7 @@ import (
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/discard"
 	"github.com/spf13/afero"
-	"reflect"
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -41,6 +41,18 @@ func Test_factory_Create(t *testing.T) {
 		{
 			"template",
 			args{name: "foo", fs: afero.NewBasePathFs(fs, "template")},
+			want{name: "foo", description: "Foo", sync: nil},
+			nil,
+		},
+		{
+			"template_local",
+			args{name: "foo", fs: afero.NewBasePathFs(fs, "template_local")},
+			want{name: "foo", description: "Bar", sync: nil},
+			nil,
+		},
+		{
+			"template_sync",
+			args{name: "foo", fs: afero.NewBasePathFs(fs, "template_sync")},
 			want{name: "foo", description: "Foo", sync: []syncUnit{
 				{Source: "foo", Destination: "foo"},
 				{Source: "foo", Destination: "bar"},
@@ -49,19 +61,28 @@ func Test_factory_Create(t *testing.T) {
 			}},
 			nil,
 		},
+		{
+			"template_not_found",
+			args{name: "foo", fs: afero.NewBasePathFs(fs, "template_not_found")},
+			want{},
+			ErrNotFound,
+		},
+		{
+			"template_invalid",
+			args{name: "foo", fs: afero.NewBasePathFs(fs, "template_invalid")},
+			want{},
+			ErrConfig,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tpl, err := factory.Create(tt.args.name, tt.args.fs)
-			if err != tt.wantErr {
-				t.Errorf("factory.Create() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(tt.want, want{}) {
-				got := want{name: tpl.GetName(), description: tpl.GetDescription(), sync: tpl.GetSync()}
-				if !reflect.DeepEqual(got, tt.want) {
-					t.Errorf("factory.Create() got = %v, want %v", got, tt.want)
-				}
+			assert.IsType(t, tt.wantErr, err)
+
+			if err == nil {
+				assert.Equal(t, tt.want.name, tpl.GetName())
+				assert.Equal(t, tt.want.description, tpl.GetDescription())
+				assert.Equal(t, tt.want.sync, tpl.GetSync())
 			}
 		})
 	}
