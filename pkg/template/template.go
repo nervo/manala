@@ -1,13 +1,7 @@
 package template
 
 import (
-	"errors"
 	"github.com/spf13/afero"
-)
-
-var (
-	ErrNotFound = errors.New("template not found")
-	ErrConfig   = errors.New("template config invalid")
 )
 
 type Interface interface {

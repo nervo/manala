@@ -1,13 +1,7 @@
 package project
 
 import (
-	"errors"
 	"github.com/spf13/afero"
-)
-
-var (
-	ErrNotFound = errors.New("project not found")
-	ErrConfig   = errors.New("project config invalid")
 )
 
 type Interface interface {
