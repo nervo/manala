@@ -9,7 +9,6 @@ import (
 )
 
 var (
-	Err         = errors.New("project error")
 	ErrNotFound = errors.New("project not found")
 	ErrConfig   = errors.New("project config invalid")
 )
@@ -44,7 +43,7 @@ func (fa *factory) Create(fs afero.Fs) (Interface, error) {
 		case viper.ConfigParseError:
 			return nil, ErrConfig
 		default:
-			return nil, Err
+			return nil, err
 		}
 	}
 
@@ -58,9 +57,12 @@ func (fa *factory) Create(fs afero.Fs) (Interface, error) {
 		case viper.ConfigParseError:
 			return nil, ErrConfig
 		default:
-			return nil, Err
+			return nil, err
 		}
 	}
+
+	// Options
+	prjOptions := vpr.AllSettings()
 
 	if vpr = vpr.Sub("manala"); vpr == nil {
 		return nil, ErrConfig
@@ -79,8 +81,9 @@ func (fa *factory) Create(fs afero.Fs) (Interface, error) {
 	}
 
 	prj := &project{
-		fs:     fs,
-		config: cfg,
+		fs:      fs,
+		config:  cfg,
+		options: prjOptions,
 	}
 
 	return prj, nil

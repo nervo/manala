@@ -12,7 +12,6 @@ import (
 )
 
 var (
-	Err         = errors.New("template error")
 	ErrNotFound = errors.New("template not found")
 	ErrConfig   = errors.New("template config invalid")
 )
@@ -47,7 +46,7 @@ func (fa *factory) Create(name string, fs afero.Fs) (Interface, error) {
 		case viper.ConfigParseError:
 			return nil, ErrConfig
 		default:
-			return nil, Err
+			return nil, err
 		}
 	}
 
@@ -61,7 +60,7 @@ func (fa *factory) Create(name string, fs afero.Fs) (Interface, error) {
 		case viper.ConfigParseError:
 			return nil, ErrConfig
 		default:
-			return nil, Err
+			return nil, err
 		}
 	}
 
