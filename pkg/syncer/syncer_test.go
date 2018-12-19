@@ -1,6 +1,8 @@
 package syncer
 
 import (
+	"github.com/apex/log"
+	"github.com/apex/log/handlers/discard"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -12,9 +14,14 @@ func Test_syncer_Sync(t *testing.T) {
 		afero.NewOsFs(),
 		"testdata/fs",
 	)
+	// Logger
+	logger := &log.Logger{
+		Handler: discard.Default,
+	}
 	// Syncer
 	snc := &syncer{
 		delete: true,
+		logger: logger,
 	}
 
 	type args struct {
@@ -33,7 +40,7 @@ func Test_syncer_Sync(t *testing.T) {
 	}{
 		{
 			"source_not_exist",
-			args{dst: "bar", src: "bar"},
+			args{dst: "baz", src: "baz"},
 			want{},
 			&SourceNotExistError{},
 		},
@@ -67,6 +74,18 @@ func Test_syncer_Sync(t *testing.T) {
 			want{file: "dir", content: "bar"},
 			nil,
 		},
+		{
+			"directory_not_exist",
+			args{dst: "bar", src: "bar"},
+			want{file: "bar/foo", content: "baz"},
+			nil,
+		},
+		{
+			"directory_exist",
+			args{dst: "dir", src: "bar"},
+			want{file: "dir/foo", content: "baz"},
+			nil,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -77,6 +96,7 @@ func Test_syncer_Sync(t *testing.T) {
 			_ = dstFs.Mkdir("dir_empty", 0755)
 			_ = dstFs.Mkdir("dir", 0755)
 			_, _ = dstFs.Create("dir/foo")
+			_ = afero.WriteFile(dstFs, "dir/foo", []byte("bar"), 0666)
 			_ = dstFs.Mkdir("dir/bar", 0755)
 			_, _ = dstFs.Create("dir/bar/foo")
 

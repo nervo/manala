@@ -104,7 +104,7 @@ Templates are pulled from git repository.`,
 			"repository.factory": goldi.NewType(repository.NewFactory, "@fs", "@logger", path.Join(cfg.CacheDir, "repository"), cfg.Debug),
 			"template.factory":   goldi.NewType(template.NewFactory, "@logger"),
 			"template.manager":   goldi.NewType(template.NewManager, "@repository.factory", "@template.factory", "@logger", cfg.Repository),
-			"syncer":             goldi.NewType(syncer.New),
+			"syncer":             goldi.NewType(syncer.New, "@logger"),
 			"cmd.update":         goldi.NewType(cmd.NewUpdate, "@project.manager", "@template.manager", "@syncer", "@logger"),
 			"cmd.list":           goldi.NewType(cmd.NewList, "@template.manager", "@logger"),
 		})

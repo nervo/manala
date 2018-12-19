@@ -5,6 +5,7 @@ import (
 	"crypto/md5"
 	"errors"
 	"github.com/Masterminds/sprig"
+	"github.com/apex/log"
 	"github.com/spf13/afero"
 	"html/template"
 	"os"
@@ -31,17 +32,20 @@ type Interface interface {
 	SetFileHook(hook FileHookFunc)
 }
 
-func New() Interface {
+func New(logger log.Interface) Interface {
 	return &syncer{
 		delete: true,
+		logger: logger,
 	}
 }
 
 type syncer struct {
 	// Set this to true to delete files in the destination that don't exist in the source.
 	delete bool
-	// Hook
+	// File hook
 	fileHook FileHookFunc
+	// Logger
+	logger log.Interface
 }
 
 func (snc *syncer) SetFileHook(hook FileHookFunc) {
@@ -74,6 +78,11 @@ func (snc *syncer) Sync(dst string, dstFs afero.Fs, src string, srcFs afero.Fs) 
 		if dstErr != nil && !os.IsNotExist(dstErr) {
 			return dstErr
 		}
+
+		snc.logger.WithFields(log.Fields{
+			"src": src,
+			"dst": dst,
+		}).Info("Sync directory")
 
 		// Make destination if necessary
 		if dstInfo == nil {
@@ -162,6 +171,11 @@ func (snc *syncer) Sync(dst string, dstFs afero.Fs, src string, srcFs afero.Fs) 
 		return dstErr
 	}
 
+	snc.logger.WithFields(log.Fields{
+		"src": src,
+		"dst": dst,
+	}).Info("Sync file")
+
 	// Delete destination if it's a directory
 	if dstInfo != nil && dstInfo.IsDir() {
 		err = dstFs.RemoveAll(dst)
@@ -178,7 +192,7 @@ func (snc *syncer) Sync(dst string, dstFs afero.Fs, src string, srcFs afero.Fs) 
 		}
 	}
 
-	eq, err := snc.equal(dstFs, dstInfo, dstErr, srcData)
+	eq, err := snc.equal(dst, dstFs, dstInfo, dstErr, srcData)
 	if err != nil {
 		return err
 	}
@@ -202,7 +216,7 @@ func (snc *syncer) Sync(dst string, dstFs afero.Fs, src string, srcFs afero.Fs) 
 	return nil
 }
 
-func (snc *syncer) equal(dstFs afero.Fs, dstInfo os.FileInfo, dstErr error, srcData []byte) (bool, error) {
+func (snc *syncer) equal(dst string, dstFs afero.Fs, dstInfo os.FileInfo, dstErr error, srcData []byte) (bool, error) {
 	// Destination does not exists
 	if os.IsNotExist(dstErr) {
 		return false, nil
@@ -212,7 +226,7 @@ func (snc *syncer) equal(dstFs afero.Fs, dstInfo os.FileInfo, dstErr error, srcD
 		return false, nil
 	}
 	// Checksums differs
-	dstData, err := afero.ReadFile(dstFs, dstInfo.Name())
+	dstData, err := afero.ReadFile(dstFs, dst)
 	if err != nil {
 		return false, err
 	}
