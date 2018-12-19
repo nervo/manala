@@ -8,10 +8,10 @@ import (
 	"github.com/apex/log"
 	"github.com/spf13/afero"
 	"gopkg.in/yaml.v2"
-	"text/template"
 	"os"
 	"path/filepath"
 	"strings"
+	"text/template"
 )
 
 var (

@@ -5,22 +5,30 @@ import (
 	"github.com/apex/log/handlers/discard"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+	"manala/pkg/repository"
 	"testing"
 )
 
-func Test_factory_Create(t *testing.T) {
+func Test_manager_Create(t *testing.T) {
 	// File system
 	fs := afero.NewBasePathFs(
 		afero.NewOsFs(),
-		"testdata/factory",
+		"testdata/manager",
 	)
 	// Logger
 	logger := &log.Logger{
 		Handler: discard.Default,
 	}
-	// Factory
-	factory := NewFactory(
+	// Manager
+	manager := NewManager(
+		repository.NewManager(
+			fs,
+			logger,
+			"",
+			false,
+		),
 		logger,
+		"",
 	)
 
 	type args struct {
@@ -76,7 +84,7 @@ func Test_factory_Create(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tpl, err := factory.Create(tt.args.name, tt.args.fs)
+			tpl, err := manager.Create(tt.args.name, tt.args.fs)
 			assert.IsType(t, tt.wantErr, err)
 
 			if err == nil {

@@ -1,23 +1,41 @@
 package template
 
 import (
+	"errors"
 	"github.com/apex/log"
+	"github.com/asaskevich/govalidator"
+	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/afero"
+	"github.com/spf13/viper"
 	"manala/pkg/repository"
+	"reflect"
 	"strings"
 )
 
+var (
+	ErrNotFound = errors.New("template not found")
+	ErrConfig   = errors.New("template config invalid")
+)
+
+var supportedConfigNames = []*struct {
+	name     string
+	required bool
+}{
+	{".manala", true},
+	{".manala.local", false},
+}
+
 type ManagerInterface interface {
+	Create(name string, fs afero.Fs) (Interface, error)
 	Walk(fn ManagerWalkFunc) error
 	Get(name string) (Interface, error)
 	WithRepositorySrc(src string) ManagerInterface
 }
 
-func NewManager(repositoryFactory repository.FactoryInterface, templateFactory FactoryInterface, logger log.Interface, repositorySrc string) ManagerInterface {
+func NewManager(repositoryManager repository.ManagerInterface, logger log.Interface, repositorySrc string) ManagerInterface {
 	return &manager{
 		managerCore: &managerCore{
-			repositoryFactory: repositoryFactory,
-			templateFactory:   templateFactory,
+			repositoryManager: repositoryManager,
 			logger:            logger,
 			repositories:      make(map[string]repository.Interface),
 			templates:         make(map[string]map[string]Interface),
@@ -27,8 +45,7 @@ func NewManager(repositoryFactory repository.FactoryInterface, templateFactory F
 }
 
 type managerCore struct {
-	repositoryFactory repository.FactoryInterface
-	templateFactory   FactoryInterface
+	repositoryManager repository.ManagerInterface
 	logger            log.Interface
 	repositories      map[string]repository.Interface
 	templates         map[string]map[string]Interface
@@ -39,6 +56,110 @@ type manager struct {
 	repositorySrc string
 }
 
+func (mgr *manager) Create(name string, fs afero.Fs) (Interface, error) {
+	vpr := viper.New()
+	vpr.SetFs(fs)
+
+	vpr.AddConfigPath("/")
+
+	// Configs
+	for _, cfg := range supportedConfigNames {
+		vpr.SetConfigName(cfg.name)
+
+		var err error
+
+		if cfg.required {
+			err = vpr.ReadInConfig()
+		} else {
+			err = vpr.MergeInConfig()
+		}
+
+		if err != nil {
+			switch err.(type) {
+			case viper.ConfigFileNotFoundError, viper.UnsupportedConfigError:
+				if cfg.required {
+					return nil, ErrNotFound
+				}
+			case viper.ConfigParseError:
+				return nil, ErrConfig
+			default:
+				return nil, err
+			}
+		}
+	}
+
+	if vpr = vpr.Sub("manala"); vpr == nil {
+		return nil, ErrConfig
+	}
+
+	var cfg config
+
+	// Unmarshalling
+	err := vpr.Unmarshal(&cfg, viper.DecodeHook(
+		mapstructure.ComposeDecodeHookFunc(
+			mapstructure.StringToTimeDurationHookFunc(),
+			mapstructure.StringToSliceHookFunc(","),
+			stringToSyncUnitHookFunc(),
+		),
+	))
+	if err != nil {
+		return nil, err
+	}
+
+	// Validation
+	if _, err := govalidator.ValidateStruct(cfg); err != nil {
+		return nil, err
+	}
+
+	// Instantiate template
+	tpl := &template{
+		name:   name,
+		fs:     fs,
+		config: cfg,
+	}
+
+	return tpl, nil
+}
+
+// Returns a DecodeHookFunc that converts strings to syncUnit
+func stringToSyncUnitHookFunc() mapstructure.DecodeHookFunc {
+	return func(rf reflect.Type, rt reflect.Type, data interface{}) (interface{}, error) {
+		if rf.Kind() != reflect.String {
+			return data, nil
+		}
+		if rt != reflect.TypeOf(syncUnit{}) {
+			return data, nil
+		}
+
+		src := data.(string)
+		dst := src
+		tpl := ""
+
+		// Separate source / destination
+		u := strings.Split(src, " ")
+		if len(u) > 1 {
+			src = u[0]
+			dst = u[1]
+		}
+
+		// Separate template / source
+		v := strings.Split(src, ":")
+		if len(v) > 1 {
+			tpl = v[0]
+			src = v[1]
+			if len(u) < 2 {
+				dst = src
+			}
+		}
+
+		return syncUnit{
+			Source:      src,
+			Destination: dst,
+			Template:    tpl,
+		}, nil
+	}
+}
+
 // Get repository
 func (mgr *manager) getRepository(src string) (repository.Interface, error) {
 	// Check if repository already in store
@@ -47,7 +168,7 @@ func (mgr *manager) getRepository(src string) (repository.Interface, error) {
 	}
 
 	// Create repository
-	rep, err := mgr.repositoryFactory.Create(src)
+	rep, err := mgr.repositoryManager.Create(src)
 	if err != nil {
 		// Todo: what about storing "nil" value for template name to speed up next error resolving ?
 		return nil, err
@@ -73,13 +194,13 @@ func (mgr *manager) getTemplate(name string, rep repository.Interface) (Interfac
 		return tpl, nil
 	}
 
-	// Todo: is this really usesful ? trying to create the template with the factory should be enough...
+	// Todo: is this really usesful ? trying to create the template should be enough...
 	if ok, _ := afero.DirExists(rep.GetFs(), name); !ok {
 		return nil, ErrNotFound
 	}
 
 	// Create template
-	tpl, err := mgr.templateFactory.Create(
+	tpl, err := mgr.Create(
 		name,
 		afero.NewBasePathFs(rep.GetFs(), name),
 	)
