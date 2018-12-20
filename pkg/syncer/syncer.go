@@ -30,6 +30,7 @@ type FileHookFunc func(src string, srcData []byte, dst string) (string, []byte, 
 type Interface interface {
 	Sync(dst string, dstFs afero.Fs, src string, srcFs afero.Fs) error
 	SetFileHook(hook FileHookFunc)
+	TemplateHook(data interface{}) FileHookFunc
 }
 
 func New(logger log.Interface) Interface {
@@ -71,6 +72,11 @@ func (snc *syncer) Sync(dst string, dstFs afero.Fs, src string, srcFs afero.Fs) 
 	/* ********* */
 
 	if srcInfo.IsDir() {
+		snc.logger.WithFields(log.Fields{
+			"src": src,
+			"dst": dst,
+		}).Info("Sync directory")
+
 		// Destination info
 		dstInfo, dstErr := dstFs.Stat(dst)
 
@@ -78,11 +84,6 @@ func (snc *syncer) Sync(dst string, dstFs afero.Fs, src string, srcFs afero.Fs) 
 		if dstErr != nil && !os.IsNotExist(dstErr) {
 			return dstErr
 		}
-
-		snc.logger.WithFields(log.Fields{
-			"src": src,
-			"dst": dst,
-		}).Info("Sync directory")
 
 		// Make destination if necessary
 		if dstInfo == nil {
@@ -117,12 +118,13 @@ func (snc *syncer) Sync(dst string, dstFs afero.Fs, src string, srcFs afero.Fs) 
 		// Deletion below
 		m := make(map[string]bool, len(files))
 		for _, file := range files {
-			dst2 := filepath.Join(dst, file.Name())
-			src2 := filepath.Join(src, file.Name())
-			if err = snc.Sync(dst2, dstFs, src2, srcFs); err != nil {
+			dstFile := filepath.Join(dst, file.Name())
+			srcFile := filepath.Join(src, file.Name())
+			dstFile, err = snc.syncFile(dstFile, dstFs, srcFile, srcFs)
+			if err != nil {
 				return err
 			}
-			m[file.Name()] = true
+			m[filepath.Base(dstFile)] = true
 		}
 
 		// Delete files from destination that does not exist in source
@@ -149,17 +151,28 @@ func (snc *syncer) Sync(dst string, dstFs afero.Fs, src string, srcFs afero.Fs) 
 	/* File */
 	/* **** */
 
+	_, err := snc.syncFile(dst, dstFs, src, srcFs)
+
+	return err
+}
+
+func (snc *syncer) syncFile(dst string, dstFs afero.Fs, src string, srcFs afero.Fs) (string, error) {
+	snc.logger.WithFields(log.Fields{
+		"src": src,
+		"dst": dst,
+	}).Info("Sync file")
+
 	// Data
 	srcData, err := afero.ReadFile(srcFs, src)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	// File hook
 	if snc.fileHook != nil {
 		src, srcData, dst, err = snc.fileHook(src, srcData, dst)
 		if err != nil {
-			return err
+			return "", err
 		}
 	}
 
@@ -168,19 +181,14 @@ func (snc *syncer) Sync(dst string, dstFs afero.Fs, src string, srcFs afero.Fs) 
 
 	// Error other than not existing destination
 	if dstErr != nil && !os.IsNotExist(dstErr) {
-		return dstErr
+		return "", dstErr
 	}
-
-	snc.logger.WithFields(log.Fields{
-		"src": src,
-		"dst": dst,
-	}).Info("Sync file")
 
 	// Delete destination if it's a directory
 	if dstInfo != nil && dstInfo.IsDir() {
 		err = dstFs.RemoveAll(dst)
 		if err != nil {
-			return err
+			return "", err
 		}
 
 		// Destination info
@@ -188,13 +196,13 @@ func (snc *syncer) Sync(dst string, dstFs afero.Fs, src string, srcFs afero.Fs) 
 
 		// Error other than not existing destination
 		if dstErr != nil && !os.IsNotExist(dstErr) {
-			return dstErr
+			return "", dstErr
 		}
 	}
 
 	eq, err := snc.equal(dst, dstFs, dstInfo, dstErr, srcData)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	if !eq {
@@ -203,17 +211,17 @@ func (snc *syncer) Sync(dst string, dstFs afero.Fs, src string, srcFs afero.Fs) 
 		if dstDir != "." {
 			err = dstFs.MkdirAll(dstDir, 0755)
 			if err != nil {
-				return err
+				return "", err
 			}
 		}
 
 		err := afero.WriteFile(dstFs, dst, srcData, 0666)
 		if err != nil {
-			return err
+			return "", err
 		}
 	}
 
-	return nil
+	return dst, nil
 }
 
 func (snc *syncer) equal(dst string, dstFs afero.Fs, dstInfo os.FileInfo, dstErr error, srcData []byte) (bool, error) {
@@ -240,7 +248,7 @@ func (snc *syncer) equal(dst string, dstFs afero.Fs, dstInfo os.FileInfo, dstErr
 	return true, nil
 }
 
-func TemplateHook(data interface{}) FileHookFunc {
+func (snc *syncer) TemplateHook(data interface{}) FileHookFunc {
 	return func(src string, srcData []byte, dst string) (string, []byte, string, error) {
 		// Filter on ".tmpl" source files
 		if filepath.Ext(src) != ".tmpl" {
@@ -248,7 +256,12 @@ func TemplateHook(data interface{}) FileHookFunc {
 		}
 
 		// Remove destination ".tmpl" extension
-		dst = strings.TrimRight(dst, ".tmpl")
+		dst = strings.TrimSuffix(dst, ".tmpl")
+
+		snc.logger.WithFields(log.Fields{
+			"src": src,
+			"dst": dst,
+		}).Info("Sync file template")
 
 		tmpl, err := template.New(src).Funcs(sprig.FuncMap()).Parse(string(srcData))
 		if err != nil {
