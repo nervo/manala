@@ -7,7 +7,8 @@ import (
 	"github.com/Masterminds/sprig"
 	"github.com/apex/log"
 	"github.com/spf13/afero"
-	"html/template"
+	"gopkg.in/yaml.v2"
+	"text/template"
 	"os"
 	"path/filepath"
 	"strings"
@@ -270,7 +271,19 @@ func (snc *syncer) TemplateHook(data interface{}) FileHookFunc {
 			"dst": dst,
 		}).Info("Sync file template")
 
-		tmpl, err := template.New(src).Funcs(sprig.FuncMap()).Parse(string(srcData))
+		// Sprig functions
+		funcs := sprig.TxtFuncMap()
+
+		// Extra functions
+		funcs["toYaml"] = func(v interface{}) string {
+			data, err := yaml.Marshal(v)
+			if err != nil {
+				return ""
+			}
+			return string(data)
+		}
+
+		tmpl, err := template.New(src).Funcs(funcs).Parse(string(srcData))
 		if err != nil {
 			return "", nil, "", err
 		}
