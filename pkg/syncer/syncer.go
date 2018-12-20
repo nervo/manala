@@ -120,9 +120,16 @@ func (snc *syncer) Sync(dst string, dstFs afero.Fs, src string, srcFs afero.Fs) 
 		for _, file := range files {
 			dstFile := filepath.Join(dst, file.Name())
 			srcFile := filepath.Join(src, file.Name())
-			dstFile, err = snc.syncFile(dstFile, dstFs, srcFile, srcFs)
-			if err != nil {
-				return err
+			if file.IsDir() {
+				err = snc.Sync(dstFile, dstFs, srcFile, srcFs)
+				if err != nil {
+					return err
+				}
+			} else {
+				dstFile, err = snc.syncFile(dstFile, dstFs, srcFile, srcFs)
+				if err != nil {
+					return err
+				}
 			}
 			m[filepath.Base(dstFile)] = true
 		}
