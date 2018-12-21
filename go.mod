@@ -11,12 +11,16 @@ require (
 	github.com/fatih/color v1.7.0 // indirect
 	github.com/fgrosse/goldi v1.0.1
 	github.com/fsnotify/fsnotify v1.4.7
+	github.com/gen2brain/beeep v0.0.0-20180718162406-4e430518395f
+	github.com/godbus/dbus v4.1.0+incompatible // indirect
 	github.com/google/uuid v1.1.0 // indirect
+	github.com/gopherjs/gopherwasm v1.0.1 // indirect
 	github.com/huandu/xstrings v1.2.0 // indirect
 	github.com/imdario/mergo v0.3.6 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/mitchellh/go-homedir v1.0.0
 	github.com/mitchellh/mapstructure v1.1.2
+	github.com/nu7hatch/gouuid v0.0.0-20131221200532-179d4d0c4d8d // indirect
 	github.com/spf13/afero v1.2.0
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/viper v1.3.1
@@ -27,5 +31,6 @@ require (
 	gopkg.in/src-d/go-billy.v4 v4.3.0 // indirect
 	gopkg.in/src-d/go-git-fixtures.v3 v3.3.0 // indirect
 	gopkg.in/src-d/go-git.v4 v4.8.1
+	gopkg.in/toast.v1 v1.0.0-20180812000517-0a84660828b2 // indirect
 	gopkg.in/yaml.v2 v2.2.2
 )

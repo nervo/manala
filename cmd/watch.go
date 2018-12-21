@@ -4,6 +4,7 @@ import (
 	"github.com/apex/log"
 	"github.com/fgrosse/goldi"
 	"github.com/fsnotify/fsnotify"
+	"github.com/gen2brain/beeep"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"manala/pkg/project"
@@ -40,6 +41,8 @@ Example: manala watch /foo/bar -> resulting in an watch in /foo/bar directory`,
 		},
 	}
 
+	cmd.Flags().BoolVarP(&opt.Notify, "notify", "n", false, "Notify")
+
 	return cmd
 }
 
@@ -48,6 +51,7 @@ Example: manala watch /foo/bar -> resulting in an watch in /foo/bar directory`,
 /***********/
 
 type watchOptions struct {
+	Notify bool
 }
 
 func NewWatch(projectManager project.ManagerInterface, templateManager template.ManagerInterface, syncer syncer.Interface, logger log.Interface) *watch {
@@ -131,6 +135,9 @@ func (cmd *watch) run(dir string, opt watchOptions) {
 									cmd.logger.WithError(err).Error("Error syncing project")
 								} else {
 									cmd.logger.Info("Project synced")
+									if opt.Notify {
+										_ = beeep.Notify("Manala", "Project synced", "")
+									}
 								}
 							}
 							break
