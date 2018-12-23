@@ -41,7 +41,7 @@ Templates are pulled from git repository.`,
 		Version: version,
 	}
 
-	rootCmd.PersistentFlags().StringP("repository", "t", cfg.Repository, "repository")
+	rootCmd.PersistentFlags().StringP("repository", "p", cfg.Repository, "repository")
 	rootCmd.PersistentFlags().StringP("cache-dir", "c", cfg.CacheDir, "cache dir (default \"$HOME/.manala/cache\")")
 	rootCmd.PersistentFlags().BoolP("debug", "d", cfg.Debug, "debug")
 
@@ -102,7 +102,7 @@ Templates are pulled from git repository.`,
 			"fs":                 goldi.NewInstanceType(fs),
 			"project.manager":    goldi.NewType(project.NewManager, "@fs", "@logger"),
 			"repository.manager": goldi.NewType(repository.NewManager, "@fs", "@logger", path.Join(cfg.CacheDir, "repository"), cfg.Debug),
-			"template.manager":   goldi.NewType(template.NewManager, "@repository.manager", "@logger", cfg.Repository),
+			"template.manager":   goldi.NewType(template.NewSingleRepositoryManager, "@repository.manager", "@logger", cfg.Repository),
 			"syncer":             goldi.NewType(syncer.New, "@logger"),
 			"cmd.update":         goldi.NewType(cmd.NewUpdate, "@project.manager", "@template.manager", "@syncer", "@logger"),
 			"cmd.watch":          goldi.NewType(cmd.NewWatch, "@project.manager", "@template.manager", "@syncer", "@logger"),

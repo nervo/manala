@@ -4,6 +4,10 @@ import (
 	"github.com/spf13/afero"
 )
 
+/***********/
+/* Project */
+/***********/
+
 type Interface interface {
 	GetFs() afero.Fs
 	GetTemplate() string

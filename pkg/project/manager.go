@@ -6,16 +6,23 @@ import (
 	"github.com/asaskevich/govalidator"
 	"github.com/spf13/afero"
 	"github.com/spf13/viper"
-	"manala/pkg/syncer"
-	"manala/pkg/template"
 	"os"
+	"path"
 	"path/filepath"
 )
+
+/**********/
+/* Errors */
+/**********/
 
 var (
 	ErrNotFound = errors.New("project not found")
 	ErrConfig   = errors.New("project config invalid")
 )
+
+/**********/
+/* Config */
+/**********/
 
 var supportedConfigNames = []*struct {
 	name     string
@@ -25,25 +32,41 @@ var supportedConfigNames = []*struct {
 	{".manala.local", false},
 }
 
-func GetSupportedConfigFiles() []string {
+/*******************/
+/* Managed Project */
+/*******************/
+
+type ManagedProject struct {
+	Interface
+	dir string
+}
+
+func (prj *ManagedProject) GetDir() string {
+	return prj.dir
+}
+
+func (prj *ManagedProject) GetSupportedConfigFiles() []string {
 	var files []string
 	for _, cfg := range supportedConfigNames {
 		for _, ext := range viper.SupportedExts {
-			files = append(files, cfg.name+"."+ext)
+			files = append(files, path.Join(prj.GetDir(), cfg.name+"."+ext))
 		}
 	}
 
 	return files
 }
 
+/***********/
+/* Manager */
+/***********/
+
 type ManagerInterface interface {
-	Create(fs afero.Fs) (Interface, error)
-	Find(dir string) (Interface, error)
-	Walk(dir string, fn WalkFunc) error
-	Sync(prj Interface, tmplMgr template.ManagerInterface, snc syncer.Interface) error
+	Create(fs afero.Fs) (*project, error)
+	Find(dir string) (*ManagedProject, error)
+	Walk(dir string, fn ManagerWalkFunc) error
 }
 
-func NewManager(fs afero.Fs, logger log.Interface) ManagerInterface {
+func NewManager(fs afero.Fs, logger log.Interface) *manager {
 	return &manager{
 		fs:     fs,
 		logger: logger,
@@ -55,7 +78,7 @@ type manager struct {
 	logger log.Interface
 }
 
-func (mgr *manager) Create(fs afero.Fs) (Interface, error) {
+func (mgr *manager) Create(fs afero.Fs) (*project, error) {
 	vpr := viper.New()
 	vpr.SetFs(fs)
 
@@ -106,25 +129,26 @@ func (mgr *manager) Create(fs afero.Fs) (Interface, error) {
 		return nil, err
 	}
 
-	prj := &project{
+	return &project{
 		fs:      fs,
 		config:  cfg,
 		options: prjOptions,
-	}
-
-	return prj, nil
+	}, nil
 }
 
 // Find a project by browsing dir then its parents up to root
-func (mgr *manager) Find(dir string) (Interface, error) {
+func (mgr *manager) Find(dir string) (*ManagedProject, error) {
 	// Todo: oh god... this algorithm sucks... how the hell git do ?
 	lastDir := ""
 	for dir != lastDir {
 		lastDir = dir
 		mgr.logger.WithField("dir", dir).Debug("Searching project...")
-		p, err := mgr.Create(afero.NewBasePathFs(mgr.fs, dir))
+		prj, err := mgr.Create(afero.NewBasePathFs(mgr.fs, dir))
 		if err == nil {
-			return p, nil
+			return &ManagedProject{
+				Interface: prj,
+				dir:       dir,
+			}, nil
 		}
 		dir = filepath.Dir(dir)
 	}
@@ -132,10 +156,10 @@ func (mgr *manager) Find(dir string) (Interface, error) {
 	return nil, ErrNotFound
 }
 
-type WalkFunc func(project Interface)
+type ManagerWalkFunc func(project *ManagedProject)
 
 // Find projects recursively starting from dir
-func (mgr *manager) Walk(dir string, fn WalkFunc) error {
+func (mgr *manager) Walk(dir string, fn ManagerWalkFunc) error {
 
 	err := afero.Walk(mgr.fs, dir, func(path string, info os.FileInfo, err error) error {
 		if !info.IsDir() {
@@ -143,51 +167,21 @@ func (mgr *manager) Walk(dir string, fn WalkFunc) error {
 		}
 
 		mgr.logger.WithField("dir", path).Debug("Searching project...")
-		p, err := mgr.Create(afero.NewBasePathFs(mgr.fs, path))
+		prj, err := mgr.Create(afero.NewBasePathFs(mgr.fs, path))
 		if err != nil {
 			return nil
 		}
 
-		fn(p)
+		fn(&ManagedProject{
+			Interface: prj,
+			dir:       dir,
+		})
 
 		return nil
 	})
 
 	if err != nil {
 		return err
-	}
-
-	return nil
-}
-
-func (mgr *manager) Sync(prj Interface, tmplMgr template.ManagerInterface, snc syncer.Interface) error {
-	// Custom project repository
-	if prj.GetRepository() != "" {
-		tmplMgr = tmplMgr.WithRepositorySrc(prj.GetRepository())
-	}
-
-	// Get template
-	tpl, err := tmplMgr.Get(prj.GetTemplate())
-	if err != nil {
-		return err
-	}
-
-	// Sync
-	snc.SetFileHook(snc.TemplateHook(prj.GetOptions()))
-
-	for _, u := range tpl.GetSync() {
-		srcFs := tpl.GetFs()
-		if u.Template != "" {
-			srcTpl, err := tmplMgr.Get(u.Template)
-			if err != nil {
-				return err
-			}
-			srcFs = srcTpl.GetFs()
-		}
-		err = snc.Sync(u.Destination, prj.GetFs(), u.Source, srcFs)
-		if err != nil {
-			return err
-		}
 	}
 
 	return nil

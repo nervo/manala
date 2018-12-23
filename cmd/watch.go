@@ -5,12 +5,11 @@ import (
 	"github.com/fgrosse/goldi"
 	"github.com/fsnotify/fsnotify"
 	"github.com/gen2brain/beeep"
-	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"manala/pkg/project"
 	"manala/pkg/syncer"
 	"manala/pkg/template"
-	"path"
+	"os"
 	"path/filepath"
 )
 
@@ -41,6 +40,7 @@ Example: manala watch /foo/bar -> resulting in an watch in /foo/bar directory`,
 		},
 	}
 
+	cmd.Flags().BoolVarP(&opt.Template, "template", "t", false, "Template")
 	cmd.Flags().BoolVarP(&opt.Notify, "notify", "n", false, "Notify")
 
 	return cmd
@@ -51,7 +51,8 @@ Example: manala watch /foo/bar -> resulting in an watch in /foo/bar directory`,
 /***********/
 
 type watchOptions struct {
-	Notify bool
+	Template bool
+	Notify   bool
 }
 
 func NewWatch(projectManager project.ManagerInterface, templateManager template.ManagerInterface, syncer syncer.Interface, logger log.Interface) *watch {
@@ -88,23 +89,39 @@ func (cmd *watch) run(dir string, opt watchOptions) {
 		"repository": prj.GetRepository(),
 	}).Info("Project found")
 
-	// Get project directory
-	var prjDir string
+	var prjConfigFiles []string
 
-	switch prj.GetFs().(type) {
-	case *afero.BasePathFs:
-		prjDir, err = prj.GetFs().(*afero.BasePathFs).RealPath("")
-		if err != nil {
-			cmd.logger.WithError(err).Fatal("Error getting project directory")
-		}
-	default:
-		cmd.logger.Fatal("Project file system watching not supported")
+	for _, file := range prj.GetSupportedConfigFiles() {
+		prjConfigFiles = append(prjConfigFiles, file)
 	}
 
-	// Get project supported config files
-	cfgFiles := project.GetSupportedConfigFiles()
-	for i, file := range cfgFiles {
-		cfgFiles[i] = path.Join(prjDir, file)
+	tmplMgr := cmd.templateManager
+
+	// Custom project repository
+	if prj.GetRepository() != "" {
+		tmplMgr = cmd.templateManager.WithRepositorySrc(prj.GetRepository())
+	}
+
+	var tmplDirs []string
+
+	// Get template directories
+	if opt.Template {
+		// Get project template
+		tmpl, err := tmplMgr.Get(prj.GetTemplate())
+		if err != nil {
+			cmd.logger.WithError(err).Warn("Error getting project template")
+		} else {
+			err = filepath.Walk(tmpl.GetDir(), func(path string, info os.FileInfo, err error) error {
+				if info.Mode().IsDir() {
+					tmplDirs = append(tmplDirs, path)
+				}
+
+				return nil
+			})
+			if err != nil {
+				cmd.logger.WithError(err).Warn("Error walking into project template")
+			}
+		}
 	}
 
 	// Watcher
@@ -114,8 +131,28 @@ func (cmd *watch) run(dir string, opt watchOptions) {
 	}
 	defer watcher.Close()
 
+	// Watch project
+	err = watcher.Add(prj.GetDir())
+	if err != nil {
+		cmd.logger.WithError(err).Fatal("Error adding project watching")
+	}
+
+	// Watch template
+	for _, dir := range tmplDirs {
+		err = watcher.Add(dir)
+		if err != nil {
+			cmd.logger.WithError(err).Fatal("Error adding templaten watching")
+		}
+	}
+
+	cmd.logger.Info("Start watching...")
+
 	done := make(chan bool)
 	go func() {
+		prj, err := cmd.projectManager.Create(prj.GetFs())
+		if err != nil {
+			cmd.logger.WithError(err).Fatal("Error creating project")
+		}
 		for {
 			select {
 			case event, ok := <-watcher.Events:
@@ -123,24 +160,37 @@ func (cmd *watch) run(dir string, opt watchOptions) {
 					return
 				}
 				if event.Op&fsnotify.Write == fsnotify.Write || event.Op&fsnotify.Create == fsnotify.Create {
-					for _, file := range cfgFiles {
+					modified := false
+					for _, file := range prjConfigFiles {
 						if filepath.Clean(event.Name) == file {
 							cmd.logger.WithField("file", file).Info("Project config modified")
-							prj, err = cmd.projectManager.Create(prj.GetFs())
+
+							modifiedPrj, err := cmd.projectManager.Create(prj.GetFs())
 							if err != nil {
 								cmd.logger.WithError(err).Error("Error creating project")
 							} else {
-								err = cmd.projectManager.Sync(prj, cmd.templateManager, cmd.syncer)
-								if err != nil {
-									cmd.logger.WithError(err).Error("Error syncing project")
-								} else {
-									cmd.logger.Info("Project synced")
-									if opt.Notify {
-										_ = beeep.Notify("Manala", "Project synced", "")
-									}
-								}
+								modified = true
+								prj = modifiedPrj
 							}
 							break
+						}
+					}
+					for _, dir := range tmplDirs {
+						if filepath.Dir(filepath.Clean(event.Name)) == dir {
+							cmd.logger.WithField("dir", dir).Info("Project template modified")
+							modified = true
+						}
+					}
+
+					if modified {
+						err := cmd.syncer.SyncProject(prj, tmplMgr)
+						if err != nil {
+							cmd.logger.WithError(err).Error("Error syncing project")
+						} else {
+							cmd.logger.Info("Project synced")
+							if opt.Notify {
+								_ = beeep.Notify("Manala", "Project synced", "")
+							}
 						}
 					}
 				}
@@ -152,12 +202,5 @@ func (cmd *watch) run(dir string, opt watchOptions) {
 			}
 		}
 	}()
-
-	err = watcher.Add(prjDir)
-	if err != nil {
-		cmd.logger.WithError(err).Fatal("Error watching")
-	}
-
-	cmd.logger.Info("Start watching...")
 	<-done
 }

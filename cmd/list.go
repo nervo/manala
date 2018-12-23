@@ -54,8 +54,8 @@ type list struct {
 
 func (cmd *list) run(opt listOptions) {
 	// Walk
-	err := cmd.templateManager.Walk(func(tpl template.Interface) {
-		fmt.Printf("%s: %s\n", tpl.GetName(), tpl.GetDescription())
+	err := cmd.templateManager.Walk(func(tmpl *template.ManagedTemplate) {
+		fmt.Printf("%s: %s\n", tmpl.GetName(), tmpl.GetDescription())
 	})
 
 	if err != nil {

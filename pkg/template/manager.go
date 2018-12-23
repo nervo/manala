@@ -8,14 +8,22 @@ import (
 	"github.com/spf13/afero"
 	"github.com/spf13/viper"
 	"manala/pkg/repository"
-	"reflect"
+	"path"
 	"strings"
 )
+
+/**********/
+/* Errors */
+/**********/
 
 var (
 	ErrNotFound = errors.New("template not found")
 	ErrConfig   = errors.New("template config invalid")
 )
+
+/**********/
+/* Config */
+/**********/
 
 var supportedConfigNames = []*struct {
 	name     string
@@ -25,38 +33,55 @@ var supportedConfigNames = []*struct {
 	{".manala.local", false},
 }
 
+/********************/
+/* Managed Template */
+/********************/
+
+type ManagedTemplate struct {
+	Interface
+	dir string
+}
+
+func (tmpl *ManagedTemplate) GetDir() string {
+	return tmpl.dir
+}
+
+/***********/
+/* Manager */
+/***********/
+
 type ManagerInterface interface {
-	Create(name string, fs afero.Fs) (Interface, error)
+	Create(name string, fs afero.Fs) (*template, error)
 	Walk(fn ManagerWalkFunc) error
-	Get(name string) (Interface, error)
+	Get(name string) (*ManagedTemplate, error)
 	WithRepositorySrc(src string) ManagerInterface
 }
 
-func NewManager(repositoryManager repository.ManagerInterface, logger log.Interface, repositorySrc string) ManagerInterface {
-	return &manager{
-		managerCore: &managerCore{
+type manager struct {
+	repositoryManager repository.ManagerInterface
+	logger            log.Interface
+	repositories      map[string]*repository.ManagedRepository
+	templates         map[string]map[string]*ManagedTemplate
+}
+
+func NewSingleRepositoryManager(repositoryManager repository.ManagerInterface, logger log.Interface, repositorySrc string) *singleRepositoryManager {
+	return &singleRepositoryManager{
+		manager: &manager{
 			repositoryManager: repositoryManager,
 			logger:            logger,
-			repositories:      make(map[string]repository.Interface),
-			templates:         make(map[string]map[string]Interface),
+			repositories:      make(map[string]*repository.ManagedRepository),
+			templates:         make(map[string]map[string]*ManagedTemplate),
 		},
 		repositorySrc: repositorySrc,
 	}
 }
 
-type managerCore struct {
-	repositoryManager repository.ManagerInterface
-	logger            log.Interface
-	repositories      map[string]repository.Interface
-	templates         map[string]map[string]Interface
-}
-
-type manager struct {
-	*managerCore
+type singleRepositoryManager struct {
+	*manager
 	repositorySrc string
 }
 
-func (mgr *manager) Create(name string, fs afero.Fs) (Interface, error) {
+func (mgr *singleRepositoryManager) Create(name string, fs afero.Fs) (*template, error) {
 	vpr := viper.New()
 	vpr.SetFs(fs)
 
@@ -99,7 +124,7 @@ func (mgr *manager) Create(name string, fs afero.Fs) (Interface, error) {
 		mapstructure.ComposeDecodeHookFunc(
 			mapstructure.StringToTimeDurationHookFunc(),
 			mapstructure.StringToSliceHookFunc(","),
-			stringToSyncUnitHookFunc(),
+			StringToSyncUnitHookFunc(),
 		),
 	))
 	if err != nil {
@@ -112,56 +137,15 @@ func (mgr *manager) Create(name string, fs afero.Fs) (Interface, error) {
 	}
 
 	// Instantiate template
-	tpl := &template{
+	return &template{
 		name:   name,
 		fs:     fs,
 		config: cfg,
-	}
-
-	return tpl, nil
-}
-
-// Returns a DecodeHookFunc that converts strings to syncUnit
-func stringToSyncUnitHookFunc() mapstructure.DecodeHookFunc {
-	return func(rf reflect.Type, rt reflect.Type, data interface{}) (interface{}, error) {
-		if rf.Kind() != reflect.String {
-			return data, nil
-		}
-		if rt != reflect.TypeOf(syncUnit{}) {
-			return data, nil
-		}
-
-		src := data.(string)
-		dst := src
-		tpl := ""
-
-		// Separate source / destination
-		u := strings.Split(src, " ")
-		if len(u) > 1 {
-			src = u[0]
-			dst = u[1]
-		}
-
-		// Separate template / source
-		v := strings.Split(src, ":")
-		if len(v) > 1 {
-			tpl = v[0]
-			src = v[1]
-			if len(u) < 2 {
-				dst = src
-			}
-		}
-
-		return syncUnit{
-			Source:      src,
-			Destination: dst,
-			Template:    tpl,
-		}, nil
-	}
+	}, nil
 }
 
 // Get repository
-func (mgr *manager) getRepository(src string) (repository.Interface, error) {
+func (mgr *singleRepositoryManager) getRepository(src string) (*repository.ManagedRepository, error) {
 	// Check if repository already in store
 	if rep, ok := mgr.repositories[src]; ok {
 		return rep, nil
@@ -181,17 +165,17 @@ func (mgr *manager) getRepository(src string) (repository.Interface, error) {
 }
 
 // Get template
-func (mgr *manager) getTemplate(name string, rep repository.Interface) (Interface, error) {
+func (mgr *singleRepositoryManager) getTemplate(name string, rep *repository.ManagedRepository) (*ManagedTemplate, error) {
 
 	templates, ok := mgr.templates[rep.GetSrc()]
 	if !ok {
-		mgr.templates[rep.GetSrc()] = make(map[string]Interface)
+		mgr.templates[rep.GetSrc()] = make(map[string]*ManagedTemplate)
 		templates = mgr.templates[rep.GetSrc()]
 	}
 
 	// Check if template already in store
-	if tpl, ok := templates[name]; ok {
-		return tpl, nil
+	if tmpl, ok := templates[name]; ok {
+		return tmpl, nil
 	}
 
 	// Todo: is this really usesful ? trying to create the template should be enough...
@@ -200,7 +184,7 @@ func (mgr *manager) getTemplate(name string, rep repository.Interface) (Interfac
 	}
 
 	// Create template
-	tpl, err := mgr.Create(
+	tmpl, err := mgr.Create(
 		name,
 		afero.NewBasePathFs(rep.GetFs(), name),
 	)
@@ -209,16 +193,21 @@ func (mgr *manager) getTemplate(name string, rep repository.Interface) (Interfac
 		return nil, err
 	}
 
-	// Store template
-	templates[name] = tpl
+	mgrTmpl := &ManagedTemplate{
+		Interface: tmpl,
+		dir:       path.Join(rep.GetDir(), name),
+	}
 
-	return tpl, nil
+	// Store template
+	templates[name] = mgrTmpl
+
+	return mgrTmpl, nil
 }
 
-type ManagerWalkFunc func(tpl Interface)
+type ManagerWalkFunc func(tmpl *ManagedTemplate)
 
 // Walk into templates
-func (mgr *manager) Walk(fn ManagerWalkFunc) error {
+func (mgr *singleRepositoryManager) Walk(fn ManagerWalkFunc) error {
 	// Get repository
 	rep, err := mgr.getRepository(mgr.repositorySrc)
 	if err != nil {
@@ -236,12 +225,12 @@ func (mgr *manager) Walk(fn ManagerWalkFunc) error {
 			continue
 		}
 		if file.IsDir() {
-			tpl, err := mgr.getTemplate(file.Name(), rep)
+			tmpl, err := mgr.getTemplate(file.Name(), rep)
 			if err != nil {
 				return err
 			}
 
-			fn(tpl)
+			fn(tmpl)
 		}
 	}
 
@@ -249,20 +238,20 @@ func (mgr *manager) Walk(fn ManagerWalkFunc) error {
 }
 
 // Get template
-func (mgr *manager) Get(name string) (Interface, error) {
+func (mgr *singleRepositoryManager) Get(name string) (*ManagedTemplate, error) {
 	// Get repository
-	rep, err := mgr.getRepository(mgr.repositorySrc)
+	repo, err := mgr.getRepository(mgr.repositorySrc)
 	if err != nil {
 		return nil, err
 	}
 
-	return mgr.getTemplate(name, rep)
+	return mgr.getTemplate(name, repo)
 }
 
 // With repository source
-func (mgr *manager) WithRepositorySrc(src string) ManagerInterface {
-	return &manager{
-		managerCore:   mgr.managerCore,
+func (mgr *singleRepositoryManager) WithRepositorySrc(src string) ManagerInterface {
+	return &singleRepositoryManager{
+		manager:       mgr.manager,
 		repositorySrc: src,
 	}
 }

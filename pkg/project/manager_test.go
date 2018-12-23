@@ -190,7 +190,7 @@ func Test_manager_Walk(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := make([]want, 0)
-			err := manager.Walk(tt.args.dir, func(prj Interface) {
+			err := manager.Walk(tt.args.dir, func(prj *ManagedProject) {
 				got = append(got, want{template: prj.GetTemplate()})
 			})
 			if err != tt.wantErr {

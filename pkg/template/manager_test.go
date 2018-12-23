@@ -20,7 +20,7 @@ func Test_manager_Create(t *testing.T) {
 		Handler: discard.Default,
 	}
 	// Manager
-	manager := NewManager(
+	manager := NewSingleRepositoryManager(
 		repository.NewManager(
 			fs,
 			logger,
@@ -38,7 +38,7 @@ func Test_manager_Create(t *testing.T) {
 	type want struct {
 		name        string
 		description string
-		sync        []syncUnit
+		sync        []SyncUnit
 	}
 	tests := []struct {
 		name    string
@@ -61,7 +61,7 @@ func Test_manager_Create(t *testing.T) {
 		{
 			"template_sync",
 			args{name: "foo", fs: afero.NewBasePathFs(fs, "template_sync")},
-			want{name: "foo", description: "Foo", sync: []syncUnit{
+			want{name: "foo", description: "Foo", sync: []SyncUnit{
 				{Source: "foo", Destination: "foo"},
 				{Source: "foo", Destination: "bar"},
 				{Source: "bar", Destination: "bar", Template: "foo"},
