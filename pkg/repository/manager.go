@@ -12,12 +12,29 @@ import (
 	"path/filepath"
 )
 
-type FactoryInterface interface {
-	Create(src string) (Interface, error)
+/**********************/
+/* Managed Repository */
+/**********************/
+
+type ManagedRepository struct {
+	Interface
+	dir string
 }
 
-func NewFactory(fs afero.Fs, logger log.Interface, cacheDir string, debug bool) FactoryInterface {
-	return &factory{
+func (rep *ManagedRepository) GetDir() string {
+	return rep.dir
+}
+
+/***********/
+/* Manager */
+/***********/
+
+type ManagerInterface interface {
+	Create(src string) (*ManagedRepository, error)
+}
+
+func NewManager(fs afero.Fs, logger log.Interface, cacheDir string, debug bool) *manager {
+	return &manager{
 		fs:       fs,
 		logger:   logger,
 		cacheDir: cacheDir,
@@ -25,38 +42,39 @@ func NewFactory(fs afero.Fs, logger log.Interface, cacheDir string, debug bool) 
 	}
 }
 
-type factory struct {
+type manager struct {
 	fs       afero.Fs
 	logger   log.Interface
 	cacheDir string
 	debug    bool
 }
 
-func (fa *factory) Create(src string) (Interface, error) {
+func (mgr *manager) Create(src string) (*ManagedRepository, error) {
 	switch {
 	case filepath.Ext(src) == ".git":
-		return fa.createGit(src)
+		return mgr.createGit(src)
 	}
 
-	return fa.createDirectory(src)
+	return mgr.createDirectory(src)
 }
 
-func (fa *factory) createDirectory(src string) (Interface, error) {
+func (mgr *manager) createDirectory(src string) (*ManagedRepository, error) {
 	// Todo: ensure src exists...
 
 	// Instantiate repository
-	rep := &repository{
-		src: src,
-		fs:  afero.NewBasePathFs(fa.fs, src),
-	}
-
-	return rep, nil
+	return &ManagedRepository{
+		Interface: &repository{
+			src: src,
+			fs:  afero.NewBasePathFs(mgr.fs, src),
+		},
+		dir: src,
+	}, nil
 }
 
-func (fa *factory) createGit(src string) (Interface, error) {
+func (mgr *manager) createGit(src string) (*ManagedRepository, error) {
 	// Send git progress human readable information to stdout if debug enabled
 	gitProgress := sideband.Progress(nil)
-	if fa.debug {
+	if mgr.debug {
 		gitProgress = os.Stdout
 	}
 
@@ -64,16 +82,16 @@ func (fa *factory) createGit(src string) (Interface, error) {
 	hash.Write([]byte(src))
 
 	// Repository cache directory should be unique
-	dir := path.Join(fa.cacheDir, hex.EncodeToString(hash.Sum(nil)))
+	dir := path.Join(mgr.cacheDir, hex.EncodeToString(hash.Sum(nil)))
 
-	fa.logger.WithField("dir", fa).Debug("Opening cache repository...")
+	mgr.logger.WithField("dir", mgr).Debug("Opening cache repository...")
 
 	gitRepository, err := git.PlainOpen(dir)
 
 	if err != nil {
 		switch err {
 		case git.ErrRepositoryNotExists:
-			fa.logger.Debug("Cloning cache git repository...")
+			mgr.logger.Debug("Cloning cache git repository...")
 
 			gitRepository, err = git.PlainClone(dir, false, &git.CloneOptions{
 				URL:               src,
@@ -88,7 +106,7 @@ func (fa *factory) createGit(src string) (Interface, error) {
 			return nil, ErrUnopenable
 		}
 	} else {
-		fa.logger.Debug("Getting cache git repository worktree...")
+		mgr.logger.Debug("Getting cache git repository worktree...")
 
 		gitRepositoryWorktree, err := gitRepository.Worktree()
 
@@ -96,7 +114,7 @@ func (fa *factory) createGit(src string) (Interface, error) {
 			return nil, ErrInvalid
 		}
 
-		fa.logger.Debug("Pulling cache git repository worktree...")
+		mgr.logger.Debug("Pulling cache git repository worktree...")
 
 		err = gitRepositoryWorktree.Pull(&git.PullOptions{
 			RemoteName: "origin",
@@ -112,11 +130,11 @@ func (fa *factory) createGit(src string) (Interface, error) {
 		}
 	}
 
-	// Instantiate repository
-	rep := &repository{
-		src: src,
-		fs:  afero.NewBasePathFs(fa.fs, dir),
-	}
-
-	return rep, nil
+	return &ManagedRepository{
+		Interface: &repository{
+			src: src,
+			fs:  afero.NewBasePathFs(mgr.fs, dir),
+		},
+		dir: dir,
+	}, nil
 }

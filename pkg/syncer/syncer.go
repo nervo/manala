@@ -8,11 +8,17 @@ import (
 	"github.com/apex/log"
 	"github.com/spf13/afero"
 	"gopkg.in/yaml.v2"
-	"text/template"
+	"manala/pkg/project"
+	"manala/pkg/template"
 	"os"
 	"path/filepath"
 	"strings"
+	engine "text/template"
 )
+
+/**********/
+/* Errors */
+/**********/
 
 var (
 	Err = errors.New("sync failed")
@@ -26,15 +32,24 @@ func (e *SourceNotExistError) Error() string {
 	return "no source " + e.Source + " file or directory "
 }
 
+/*********/
+/* Hooks */
+/*********/
+
 type FileHookFunc func(src string, srcData []byte, dst string) (string, []byte, string, error)
+
+/**********/
+/* Syncer */
+/**********/
 
 type Interface interface {
 	Sync(dst string, dstFs afero.Fs, src string, srcFs afero.Fs) error
+	SyncProject(prj project.Interface, tmplMgr template.ManagerInterface) error
 	SetFileHook(hook FileHookFunc)
 	TemplateHook(data interface{}) FileHookFunc
 }
 
-func New(logger log.Interface) Interface {
+func New(logger log.Interface) *syncer {
 	return &syncer{
 		delete: true,
 		logger: logger,
@@ -52,6 +67,33 @@ type syncer struct {
 
 func (snc *syncer) SetFileHook(hook FileHookFunc) {
 	snc.fileHook = hook
+}
+
+func (snc *syncer) SyncProject(prj project.Interface, tmplMgr template.ManagerInterface) error {
+	snc.SetFileHook(snc.TemplateHook(prj.GetOptions()))
+
+	// Get template
+	tmpl, err := tmplMgr.Get(prj.GetTemplate())
+	if err != nil {
+		return err
+	}
+
+	for _, unit := range tmpl.GetSync() {
+		srcFs := tmpl.GetFs()
+		if unit.Template != "" {
+			srcTpl, err := tmplMgr.Get(unit.Template)
+			if err != nil {
+				return err
+			}
+			srcFs = srcTpl.GetFs()
+		}
+		err := snc.Sync(unit.Destination, prj.GetFs(), unit.Source, srcFs)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // Updates dst to match with src, handling both files and directories.
@@ -283,7 +325,7 @@ func (snc *syncer) TemplateHook(data interface{}) FileHookFunc {
 			return string(data)
 		}
 
-		tmpl, err := template.New(src).Funcs(funcs).Parse(string(srcData))
+		tmpl, err := engine.New(src).Funcs(funcs).Parse(string(srcData))
 		if err != nil {
 			return "", nil, "", err
 		}
