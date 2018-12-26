@@ -74,8 +74,15 @@ func (cmd *update) run(dir string, opt updateOptions) {
 	}
 
 	if opt.Recursive {
+		// Recursively find projects
 		err = cmd.projectManager.Walk(dir, func(prj *project.ManagedProject) {
-			err = cmd.syncProject(prj, cmd.templateManager)
+			cmd.logger.WithFields(log.Fields{
+				"template":   prj.GetTemplate(),
+				"repository": prj.GetRepository(),
+			}).Info("Project found")
+
+			// Sync
+			err = cmd.syncProject(prj)
 			if err != nil {
 				cmd.logger.WithError(err).Fatal("Error syncing project")
 			}
@@ -84,27 +91,31 @@ func (cmd *update) run(dir string, opt updateOptions) {
 			cmd.logger.WithError(err).Fatal("Error finding projects recursively")
 		}
 	} else {
+		// Find project
 		prj, err := cmd.projectManager.Find(dir)
 		if err != nil {
 			cmd.logger.WithError(err).Fatal("Error finding project")
 		}
 
-		err = cmd.syncProject(prj, cmd.templateManager)
+		cmd.logger.WithFields(log.Fields{
+			"template":   prj.GetTemplate(),
+			"repository": prj.GetRepository(),
+		}).Info("Project found")
+
+		// Sync
+		err = cmd.syncProject(prj)
 		if err != nil {
 			cmd.logger.WithError(err).Fatal("Error syncing project")
 		}
 	}
 }
 
-func (cmd *update) syncProject(prj project.Interface, tmplMgr template.ManagerInterface) error {
-	cmd.logger.WithFields(log.Fields{
-		"template":   prj.GetTemplate(),
-		"repository": prj.GetRepository(),
-	}).Info("Project found")
+func (cmd *update) syncProject(prj project.Interface) error {
+	tmplMgr := cmd.templateManager
 
 	// Custom project repository
 	if prj.GetRepository() != "" {
-		tmplMgr = cmd.templateManager.WithRepositorySrc(prj.GetRepository())
+		tmplMgr = tmplMgr.WithRepositorySrc(prj.GetRepository())
 	}
 
 	err := cmd.syncer.SyncProject(prj, tmplMgr)
