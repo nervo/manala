@@ -15,7 +15,7 @@ import (
 
 func UpdateCobra(container *goldi.Container) *cobra.Command {
 
-	var opt updateOptions
+	var opt UpdateOptions
 
 	cmd := &cobra.Command{
 		Use:     "update [DIR]",
@@ -33,7 +33,7 @@ Example: manala update /foo/bar -> resulting in an update in /foo/bar directory`
 			if len(args) < 1 {
 				args = append(args, "")
 			}
-			container.MustGet("cmd.update").(*update).run(args[0], opt)
+			container.MustGet("cmd.update").(*UpdateCmd).Run(args[0], opt)
 		},
 	}
 
@@ -43,40 +43,35 @@ Example: manala update /foo/bar -> resulting in an update in /foo/bar directory`
 }
 
 /***********/
-/* Command */
+/* Options */
 /***********/
 
-type updateOptions struct {
+type UpdateOptions struct {
 	Recursive bool
 }
 
-func NewUpdate(projectManager project.ManagerInterface, templateManager template.ManagerInterface, syncer syncer.Interface, logger log.Interface) *update {
-	return &update{
-		projectManager:  projectManager,
-		templateManager: templateManager,
-		syncer:          syncer,
-		logger:          logger,
-	}
+/***********/
+/* Command */
+/***********/
+
+type UpdateCmd struct {
+	ProjectManager  project.ManagerInterface
+	TemplateManager template.ManagerInterface
+	Syncer          syncer.Interface
+	Logger          log.Interface
 }
 
-type update struct {
-	projectManager  project.ManagerInterface
-	templateManager template.ManagerInterface
-	syncer          syncer.Interface
-	logger          log.Interface
-}
-
-func (cmd *update) run(dir string, opt updateOptions) {
+func (cmd *UpdateCmd) Run(dir string, opt UpdateOptions) {
 	// Get real directory
 	dir, err := getRealDir(dir)
 	if err != nil {
-		cmd.logger.WithError(err).Fatal("Error getting real directory")
+		cmd.Logger.WithError(err).Fatal("Error getting real directory")
 	}
 
 	if opt.Recursive {
 		// Recursively find projects
-		err = cmd.projectManager.Walk(dir, func(prj *project.ManagedProject) {
-			cmd.logger.WithFields(log.Fields{
+		err = cmd.ProjectManager.Walk(dir, func(prj *project.ManagedProject) {
+			cmd.Logger.WithFields(log.Fields{
 				"template":   prj.GetTemplate(),
 				"repository": prj.GetRepository(),
 			}).Info("Project found")
@@ -84,20 +79,20 @@ func (cmd *update) run(dir string, opt updateOptions) {
 			// Sync
 			err = cmd.syncProject(prj)
 			if err != nil {
-				cmd.logger.WithError(err).Fatal("Error syncing project")
+				cmd.Logger.WithError(err).Fatal("Error syncing project")
 			}
 		})
 		if err != nil {
-			cmd.logger.WithError(err).Fatal("Error finding projects recursively")
+			cmd.Logger.WithError(err).Fatal("Error finding projects recursively")
 		}
 	} else {
 		// Find project
-		prj, err := cmd.projectManager.Find(dir)
+		prj, err := cmd.ProjectManager.Find(dir)
 		if err != nil {
-			cmd.logger.WithError(err).Fatal("Error finding project")
+			cmd.Logger.WithError(err).Fatal("Error finding project")
 		}
 
-		cmd.logger.WithFields(log.Fields{
+		cmd.Logger.WithFields(log.Fields{
 			"template":   prj.GetTemplate(),
 			"repository": prj.GetRepository(),
 		}).Info("Project found")
@@ -105,25 +100,25 @@ func (cmd *update) run(dir string, opt updateOptions) {
 		// Sync
 		err = cmd.syncProject(prj)
 		if err != nil {
-			cmd.logger.WithError(err).Fatal("Error syncing project")
+			cmd.Logger.WithError(err).Fatal("Error syncing project")
 		}
 	}
 }
 
-func (cmd *update) syncProject(prj project.Interface) error {
-	tmplMgr := cmd.templateManager
+func (cmd *UpdateCmd) syncProject(prj project.Interface) error {
+	tmplMgr := cmd.TemplateManager
 
 	// Custom project repository
 	if prj.GetRepository() != "" {
 		tmplMgr = tmplMgr.WithRepositorySrc(prj.GetRepository())
 	}
 
-	err := cmd.syncer.SyncProject(prj, tmplMgr)
+	err := cmd.Syncer.SyncProject(prj, tmplMgr)
 	if err != nil {
 		return err
 	}
 
-	cmd.logger.Info("Project synced")
+	cmd.Logger.Info("Project synced")
 
 	return nil
 }

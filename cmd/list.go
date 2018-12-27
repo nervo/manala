@@ -14,7 +14,7 @@ import (
 
 func ListCobra(container *goldi.Container) *cobra.Command {
 
-	var opt listOptions
+	var opt ListOptions
 
 	cmd := &cobra.Command{
 		Use:     "list",
@@ -26,7 +26,7 @@ repository.
 Example: manala list -> resulting in a template list display`,
 		Args: cobra.MaximumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			container.MustGet("cmd.list").(*list).run(opt)
+			container.MustGet("cmd.list").(*ListCmd).Run(opt)
 		},
 	}
 
@@ -34,31 +34,28 @@ Example: manala list -> resulting in a template list display`,
 }
 
 /***********/
+/* Options */
+/***********/
+
+type ListOptions struct {
+}
+
+/***********/
 /* Command */
 /***********/
 
-type listOptions struct {
+type ListCmd struct {
+	TemplateManager template.ManagerInterface
+	Logger          log.Interface
 }
 
-func NewList(templateManager template.ManagerInterface, logger log.Interface) *list {
-	return &list{
-		templateManager: templateManager,
-		logger:          logger,
-	}
-}
-
-type list struct {
-	templateManager template.ManagerInterface
-	logger          log.Interface
-}
-
-func (cmd *list) run(opt listOptions) {
+func (cmd *ListCmd) Run(opt ListOptions) {
 	// Walk
-	err := cmd.templateManager.Walk(func(tmpl *template.ManagedTemplate) {
+	err := cmd.TemplateManager.Walk(func(tmpl *template.ManagedTemplate) {
 		fmt.Printf("%s: %s\n", tmpl.GetName(), tmpl.GetDescription())
 	})
 
 	if err != nil {
-		cmd.logger.WithError(err).Fatal("Error walking templates")
+		cmd.Logger.WithError(err).Fatal("Error walking templates")
 	}
 }
