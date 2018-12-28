@@ -12,6 +12,7 @@ import (
 	"manala/pkg/template"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 /*********/
@@ -156,14 +157,19 @@ func (cmd *watch) run(dir string, opt watchOptions) {
 						err = syncProject()
 						if err != nil {
 							cmd.logger.WithError(err).Error("Error syncing project")
-						}
-
-						cmd.logger.Info("Project synced")
-
-						if opt.Notify {
-							err := beeep.Notify("Manala", "Project synced", "")
-							if err != nil {
-								cmd.logger.WithError(err).Warn("Error notifying")
+							if opt.Notify {
+								err = beeep.Alert("Manala", strings.Replace(err.Error(), `"`, `\"`, -1), "")
+								if err != nil {
+									cmd.logger.WithError(err).Warn("Error notifying")
+								}
+							}
+						} else {
+							cmd.logger.Info("Project synced")
+							if opt.Notify {
+								err := beeep.Notify("Manala", "Project synced", "")
+								if err != nil {
+									cmd.logger.WithError(err).Warn("Error notifying")
+								}
 							}
 						}
 					}
