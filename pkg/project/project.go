@@ -15,14 +15,14 @@ type Interface interface {
 	GetOptions() map[string]interface{}
 }
 
-type config struct {
-	Template   string `mapstructure:"template" valid:"required"`
-	Repository string `mapstructure:"repository"`
+type Config struct {
+	Template   string `mapstructure:"template" valid:"required" yaml:"template"`
+	Repository string `mapstructure:"repository" yaml:"repository,omitempty"`
 }
 
 type project struct {
 	fs      afero.Fs
-	config  config
+	config  Config
 	options map[string]interface{}
 }
 

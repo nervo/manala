@@ -118,7 +118,7 @@ func (mgr *manager) Create(fs afero.Fs) (*project, error) {
 		return nil, ErrConfig
 	}
 
-	var cfg config
+	var cfg Config
 
 	// Unmarshalling
 	if err := vpr.Unmarshal(&cfg); err != nil {

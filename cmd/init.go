@@ -1,14 +1,16 @@
 package cmd
 
 import (
-	"fmt"
 	"github.com/apex/log"
 	"github.com/fgrosse/goldi"
 	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v2"
+	"io/ioutil"
 	"manala/pkg/project"
 	"manala/pkg/syncer"
 	"manala/pkg/template"
+	"path"
 	"strings"
 )
 
@@ -117,5 +119,23 @@ func (cmd *InitCmd) Run(dir string, opt InitOptions) {
 		}
 	}
 
-	fmt.Printf("You choose template %d: %s\n", i+1, templates[i].GetName())
+	// Create project config
+	cfg := project.Config{
+		Template: templates[i].GetName(),
+	}
+
+	cfgContent, err := yaml.Marshal(map[string]project.Config{
+		"manala": cfg,
+	})
+
+	if err != nil {
+		cmd.Logger.WithError(err).Fatal("Error marshalling project configuration")
+	}
+
+	// Write project config
+	err = ioutil.WriteFile(path.Join(dir, ".manala.yaml"), cfgContent, 0666)
+
+	if err != nil {
+		cmd.Logger.WithError(err).Fatal("Error writing project configuration")
+	}
 }
