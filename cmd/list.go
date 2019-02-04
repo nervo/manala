@@ -50,7 +50,7 @@ type ListCmd struct {
 }
 
 func (cmd *ListCmd) Run(opt ListOptions) {
-	// Walk
+	// Walk into templates
 	err := cmd.TemplateManager.Walk(func(tmpl *template.ManagedTemplate) {
 		fmt.Printf("%s: %s\n", tmpl.GetName(), tmpl.GetDescription())
 	})

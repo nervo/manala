@@ -62,6 +62,7 @@ func (prj *ManagedProject) GetSupportedConfigFiles() []string {
 
 type ManagerInterface interface {
 	Create(fs afero.Fs) (*project, error)
+	Get(dir string) (*ManagedProject, error)
 	Find(dir string) (*ManagedProject, error)
 	Walk(dir string, fn ManagerWalkFunc) error
 }
@@ -136,6 +137,19 @@ func (mgr *manager) Create(fs afero.Fs) (*project, error) {
 	}, nil
 }
 
+// Get a project by dir
+func (mgr *manager) Get(dir string) (*ManagedProject, error) {
+	prj, err := mgr.Create(afero.NewBasePathFs(mgr.fs, dir))
+	if err == nil {
+		return &ManagedProject{
+			Interface: prj,
+			dir:       dir,
+		}, nil
+	}
+
+	return nil, ErrNotFound
+}
+
 // Find a project by browsing dir then its parents up to root
 func (mgr *manager) Find(dir string) (*ManagedProject, error) {
 	// Todo: oh god... this algorithm sucks... how the hell git do ?
@@ -143,12 +157,9 @@ func (mgr *manager) Find(dir string) (*ManagedProject, error) {
 	for dir != lastDir {
 		lastDir = dir
 		mgr.logger.WithField("dir", dir).Debug("Searching project...")
-		prj, err := mgr.Create(afero.NewBasePathFs(mgr.fs, dir))
+		prj, err := mgr.Get(dir)
 		if err == nil {
-			return &ManagedProject{
-				Interface: prj,
-				dir:       dir,
-			}, nil
+			return prj, nil
 		}
 		dir = filepath.Dir(dir)
 	}
@@ -167,15 +178,12 @@ func (mgr *manager) Walk(dir string, fn ManagerWalkFunc) error {
 		}
 
 		mgr.logger.WithField("dir", path).Debug("Searching project...")
-		prj, err := mgr.Create(afero.NewBasePathFs(mgr.fs, path))
+		prj, err := mgr.Get(path)
 		if err != nil {
 			return nil
 		}
 
-		fn(&ManagedProject{
-			Interface: prj,
-			dir:       dir,
-		})
+		fn(prj)
 
 		return nil
 	})

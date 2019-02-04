@@ -5,7 +5,6 @@ import (
 	"github.com/fgrosse/goldi"
 	"github.com/fsnotify/fsnotify"
 	"github.com/gen2brain/beeep"
-	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"manala/pkg/project"
 	"manala/pkg/syncer"
@@ -109,7 +108,7 @@ func (cmd *WatchCmd) Run(dir string, opt WatchOptions) {
 	}
 
 	// Get sync method function
-	syncProject := cmd.syncProjectFunc(prj.GetFs(), watcher, opt.Template)
+	syncProject := cmd.syncProjectFunc(prjDir, watcher, opt.Template)
 
 	err = syncProject()
 	if err != nil {
@@ -180,12 +179,12 @@ func (cmd *WatchCmd) Run(dir string, opt WatchOptions) {
 	<-done
 }
 
-func (cmd *WatchCmd) syncProjectFunc(fs afero.Fs, watcher *fsnotify.Watcher, watchTemplate bool) func() error {
+func (cmd *WatchCmd) syncProjectFunc(dir string, watcher *fsnotify.Watcher, watchTemplate bool) func() error {
 	var baseTmplDirs []string
 
 	return func() error {
 		// Create project from file system
-		prj, err := cmd.ProjectManager.Create(fs)
+		prj, err := cmd.ProjectManager.Get(dir)
 		if err != nil {
 			return err
 		}

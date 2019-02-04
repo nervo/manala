@@ -43,25 +43,25 @@ func Test_manager_Create(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    want
+		want    *want
 		wantErr error
 	}{
 		{
 			"template",
 			args{name: "foo", fs: afero.NewBasePathFs(fs, "template")},
-			want{name: "foo", description: "Foo", sync: nil},
+			&want{name: "foo", description: "Foo", sync: nil},
 			nil,
 		},
 		{
 			"template_local",
 			args{name: "foo", fs: afero.NewBasePathFs(fs, "template_local")},
-			want{name: "foo", description: "Bar", sync: nil},
+			&want{name: "foo", description: "Bar", sync: nil},
 			nil,
 		},
 		{
 			"template_sync",
 			args{name: "foo", fs: afero.NewBasePathFs(fs, "template_sync")},
-			want{name: "foo", description: "Foo", sync: []SyncUnit{
+			&want{name: "foo", description: "Foo", sync: []SyncUnit{
 				{Source: "foo", Destination: "foo"},
 				{Source: "foo", Destination: "bar"},
 				{Source: "bar", Destination: "bar", Template: "foo"},
@@ -72,13 +72,13 @@ func Test_manager_Create(t *testing.T) {
 		{
 			"template_not_found",
 			args{name: "foo", fs: afero.NewBasePathFs(fs, "template_not_found")},
-			want{},
+			nil,
 			ErrNotFound,
 		},
 		{
 			"template_invalid",
 			args{name: "foo", fs: afero.NewBasePathFs(fs, "template_invalid")},
-			want{},
+			nil,
 			ErrConfig,
 		},
 	}
@@ -87,7 +87,7 @@ func Test_manager_Create(t *testing.T) {
 			tpl, err := manager.Create(tt.args.name, tt.args.fs)
 			assert.IsType(t, tt.wantErr, err)
 
-			if err == nil {
+			if tt.want != nil {
 				assert.Equal(t, tt.want.name, tpl.GetName())
 				assert.Equal(t, tt.want.description, tpl.GetDescription())
 				assert.Equal(t, tt.want.sync, tpl.GetSync())

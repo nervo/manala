@@ -67,9 +67,15 @@ func (cmd *InitCmd) Run(dir string, opt InitOptions) {
 		cmd.Logger.WithError(err).Fatal("Error getting real directory")
 	}
 
+	// Check project already initialized at directory
+	_, err = cmd.ProjectManager.Get(dir)
+	if err == nil {
+		cmd.Logger.WithField("dir", dir).Fatal("Project already initialized")
+	}
+
 	var templates []template.Interface
 
-	// Walk
+	// Walk into templates
 	err = cmd.TemplateManager.Walk(func(tmpl *template.ManagedTemplate) {
 		templates = append(templates, tmpl)
 	})
