@@ -52,6 +52,7 @@ Templates are pulled from git repository.`,
 	rootCmd.AddCommand(cmd.UpdateCobra(container))
 	rootCmd.AddCommand(cmd.WatchCobra(container))
 	rootCmd.AddCommand(cmd.ListCobra(container))
+	rootCmd.AddCommand(cmd.InitCobra(container))
 
 	// Initialize
 	cobra.OnInitialize(func() {
@@ -104,9 +105,10 @@ Templates are pulled from git repository.`,
 			"repository.manager": goldi.NewType(repository.NewManager, "@fs", "@logger", path.Join(cfg.CacheDir, "repository"), cfg.Debug),
 			"template.manager":   goldi.NewType(template.NewSingleRepositoryManager, "@repository.manager", "@logger", cfg.Repository),
 			"syncer":             goldi.NewType(syncer.New, "@logger"),
-			"cmd.update":         goldi.NewType(cmd.NewUpdate, "@project.manager", "@template.manager", "@syncer", "@logger"),
-			"cmd.watch":          goldi.NewType(cmd.NewWatch, "@project.manager", "@template.manager", "@syncer", "@logger"),
-			"cmd.list":           goldi.NewType(cmd.NewList, "@template.manager", "@logger"),
+			"cmd.update":         goldi.NewStructType(cmd.UpdateCmd{}, "@project.manager", "@template.manager", "@syncer", "@logger"),
+			"cmd.watch":          goldi.NewStructType(cmd.WatchCmd{}, "@project.manager", "@template.manager", "@syncer", "@logger"),
+			"cmd.list":           goldi.NewStructType(cmd.ListCmd{}, "@template.manager", "@logger"),
+			"cmd.init":           goldi.NewStructType(cmd.InitCmd{}, "@project.manager", "@template.manager", "@syncer", "@logger"),
 		})
 
 		val := validation.NewContainerValidator()

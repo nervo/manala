@@ -35,55 +35,55 @@ func Test_syncer_Sync(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    want
+		want    *want
 		wantErr error
 	}{
 		{
 			"source_not_exist",
 			args{dst: "baz", src: "baz"},
-			want{},
+			nil,
 			&SourceNotExistError{},
 		},
 		{
 			"file_not_exist",
 			args{dst: "foo", src: "foo"},
-			want{file: "foo", content: "bar"},
+			&want{file: "foo", content: "bar"},
 			nil,
 		},
 		{
 			"file_exist_same",
 			args{dst: "file_bar", src: "foo"},
-			want{file: "file_bar", content: "bar"},
+			&want{file: "file_bar", content: "bar"},
 			nil,
 		},
 		{
 			"file_exist_differs",
 			args{dst: "file_foo", src: "foo"},
-			want{file: "file_foo", content: "bar"},
+			&want{file: "file_foo", content: "bar"},
 			nil,
 		},
 		{
 			"source_file_over_destination_directory_empty",
 			args{dst: "dir_empty", src: "foo"},
-			want{file: "dir_empty", content: "bar"},
+			&want{file: "dir_empty", content: "bar"},
 			nil,
 		},
 		{
 			"source_file_over_destination_directory",
 			args{dst: "dir", src: "foo"},
-			want{file: "dir", content: "bar"},
+			&want{file: "dir", content: "bar"},
 			nil,
 		},
 		{
 			"directory_not_exist",
 			args{dst: "bar", src: "bar"},
-			want{file: "bar/foo", content: "baz"},
+			&want{file: "bar/foo", content: "baz"},
 			nil,
 		},
 		{
 			"directory_exist",
 			args{dst: "dir", src: "bar"},
-			want{file: "dir/foo", content: "baz"},
+			&want{file: "dir/foo", content: "baz"},
 			nil,
 		},
 	}
@@ -103,7 +103,7 @@ func Test_syncer_Sync(t *testing.T) {
 			err := snc.Sync(tt.args.dst, dstFs, tt.args.src, srcFs)
 			assert.IsType(t, tt.wantErr, err)
 
-			if err == nil {
+			if tt.want != nil {
 				exists, _ := afero.Exists(dstFs, tt.want.file)
 				assert.True(t, exists)
 				content, _ := afero.ReadFile(dstFs, tt.want.file)
