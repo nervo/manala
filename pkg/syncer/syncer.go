@@ -118,7 +118,7 @@ func (snc *syncer) Sync(dst string, dstFs afero.Fs, src string, srcFs afero.Fs) 
 		snc.logger.WithFields(log.Fields{
 			"src": src,
 			"dst": dst,
-		}).Info("Sync directory")
+		}).Debug("Syncing directory...")
 
 		// Destination info
 		dstInfo, dstErr := dstFs.Stat(dst)
@@ -210,7 +210,7 @@ func (snc *syncer) syncFile(dst string, dstFs afero.Fs, src string, srcFs afero.
 	snc.logger.WithFields(log.Fields{
 		"src": src,
 		"dst": dst,
-	}).Info("Sync file")
+	}).Debug("Syncing file...")
 
 	// Content
 	srcContent, err := afero.ReadFile(srcFs, src)
@@ -269,6 +269,11 @@ func (snc *syncer) syncFile(dst string, dstFs afero.Fs, src string, srcFs afero.
 		if err != nil {
 			return "", err
 		}
+
+		snc.logger.WithFields(log.Fields{
+			"src": src,
+			"dst": dst,
+		}).Info("File synced")
 	}
 
 	return dst, nil
@@ -314,7 +319,7 @@ func (snc *syncer) TemplateHook(content interface{}) FileHookFunc {
 		snc.logger.WithFields(log.Fields{
 			"src": src,
 			"dst": dst,
-		}).Info("Sync file template")
+		}).Debug("Syncing file template...")
 
 		// Sprig functions
 		funcs := sprig.TxtFuncMap()
