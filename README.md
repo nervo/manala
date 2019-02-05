@@ -19,6 +19,13 @@ Requirements
 
 * Go 1.11+
 
+## Update modules
+
+```
+go get -u
+go mod tidy
+```
+
 ## Resources
 
 * [Standard Go Project Layout](https://github.com/golang-standards/project-layout)
