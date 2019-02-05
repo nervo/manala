@@ -36,7 +36,7 @@ func (e *SourceNotExistError) Error() string {
 /* Hooks */
 /*********/
 
-type FileHookFunc func(src string, srcData []byte, dst string) (string, []byte, string, error)
+type FileHookFunc func(src string, srcContent []byte, dst string) (string, []byte, string, error)
 
 /**********/
 /* Syncer */
@@ -46,7 +46,7 @@ type Interface interface {
 	Sync(dst string, dstFs afero.Fs, src string, srcFs afero.Fs) error
 	SyncProject(prj project.Interface, tmplMgr template.ManagerInterface) error
 	SetFileHook(hook FileHookFunc)
-	TemplateHook(data interface{}) FileHookFunc
+	TemplateHook(content interface{}) FileHookFunc
 }
 
 func New(logger log.Interface) *syncer {
@@ -212,15 +212,15 @@ func (snc *syncer) syncFile(dst string, dstFs afero.Fs, src string, srcFs afero.
 		"dst": dst,
 	}).Info("Sync file")
 
-	// Data
-	srcData, err := afero.ReadFile(srcFs, src)
+	// Content
+	srcContent, err := afero.ReadFile(srcFs, src)
 	if err != nil {
 		return "", err
 	}
 
 	// File hook
 	if snc.fileHook != nil {
-		src, srcData, dst, err = snc.fileHook(src, srcData, dst)
+		src, srcContent, dst, err = snc.fileHook(src, srcContent, dst)
 		if err != nil {
 			return "", err
 		}
@@ -250,7 +250,7 @@ func (snc *syncer) syncFile(dst string, dstFs afero.Fs, src string, srcFs afero.
 		}
 	}
 
-	eq, err := snc.equal(dst, dstFs, dstInfo, dstErr, srcData)
+	eq, err := snc.equal(dst, dstFs, dstInfo, dstErr, srcContent)
 	if err != nil {
 		return "", err
 	}
@@ -265,7 +265,7 @@ func (snc *syncer) syncFile(dst string, dstFs afero.Fs, src string, srcFs afero.
 			}
 		}
 
-		err := afero.WriteFile(dstFs, dst, srcData, 0666)
+		err := afero.WriteFile(dstFs, dst, srcContent, 0666)
 		if err != nil {
 			return "", err
 		}
@@ -274,35 +274,38 @@ func (snc *syncer) syncFile(dst string, dstFs afero.Fs, src string, srcFs afero.
 	return dst, nil
 }
 
-func (snc *syncer) equal(dst string, dstFs afero.Fs, dstInfo os.FileInfo, dstErr error, srcData []byte) (bool, error) {
+func (snc *syncer) equal(dst string, dstFs afero.Fs, dstInfo os.FileInfo, dstErr error, srcContent []byte) (bool, error) {
 	// Destination does not exists
 	if os.IsNotExist(dstErr) {
 		return false, nil
 	}
-	// Source data and destination file size differs
-	if int(dstInfo.Size()) != len(srcData) {
+
+	// Source content and destination file size differs
+	if int(dstInfo.Size()) != len(srcContent) {
 		return false, nil
 	}
-	// Checksums differs
-	dstData, err := afero.ReadFile(dstFs, dst)
+
+	// Checksum differs
+	dstContent, err := afero.ReadFile(dstFs, dst)
 	if err != nil {
 		return false, err
 	}
-	dstHash := md5.Sum(dstData)
-	srcHash := md5.Sum(srcData)
 
-	if dstHash != srcHash {
+	dstContentHash := md5.Sum(dstContent)
+	srcContentHash := md5.Sum(srcContent)
+
+	if dstContentHash != srcContentHash {
 		return false, nil
 	}
 
 	return true, nil
 }
 
-func (snc *syncer) TemplateHook(data interface{}) FileHookFunc {
-	return func(src string, srcData []byte, dst string) (string, []byte, string, error) {
+func (snc *syncer) TemplateHook(content interface{}) FileHookFunc {
+	return func(src string, srcContent []byte, dst string) (string, []byte, string, error) {
 		// Filter on ".tmpl" source files
 		if filepath.Ext(src) != ".tmpl" {
-			return src, srcData, dst, nil
+			return src, srcContent, dst, nil
 		}
 
 		// Remove destination ".tmpl" extension
@@ -318,27 +321,27 @@ func (snc *syncer) TemplateHook(data interface{}) FileHookFunc {
 
 		// Extra functions
 		funcs["toYaml"] = func(v interface{}) string {
-			data, err := yaml.Marshal(v)
+			content, err := yaml.Marshal(v)
 			if err != nil {
 				return ""
 			}
-			return string(data)
+			return string(content)
 		}
 
-		tmpl, err := engine.New(src).Funcs(funcs).Parse(string(srcData))
+		tmpl, err := engine.New(src).Funcs(funcs).Parse(string(srcContent))
 		if err != nil {
 			return "", nil, "", err
 		}
 
-		var tmplData bytes.Buffer
+		var tmplContent bytes.Buffer
 
-		err = tmpl.Execute(&tmplData, data)
+		err = tmpl.Execute(&tmplContent, content)
 		if err != nil {
 			return "", nil, "", err
 		}
 
-		srcData = tmplData.Bytes()
+		srcContent = tmplContent.Bytes()
 
-		return src, srcData, dst, nil
+		return src, srcContent, dst, nil
 	}
 }
