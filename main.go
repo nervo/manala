@@ -30,6 +30,9 @@ var cfg = &config.Config{
 }
 
 func main() {
+	// Log
+	log.SetHandler(cli.Default)
+
 	// Root command
 	rootCmd := &cobra.Command{
 		Use:   "manala",
