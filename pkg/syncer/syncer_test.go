@@ -112,3 +112,75 @@ func Test_syncer_Sync(t *testing.T) {
 		})
 	}
 }
+
+func Test_syncer_Sync_executable(t *testing.T) {
+	// Source file system
+	srcFs := afero.NewBasePathFs(
+		afero.NewOsFs(),
+		"testdata/fs",
+	)
+	// Logger
+	logger := &log.Logger{
+		Handler: discard.Default,
+	}
+	// Syncer
+	snc := &syncer{
+		delete: true,
+		logger: logger,
+	}
+
+	type args struct {
+		dst string
+		src string
+	}
+	tests := []struct {
+		name           string
+		args           args
+		wantExecutable bool
+	}{
+		{
+			"executable_true",
+			args{dst: "executable", src: "executable_true"},
+			true,
+		},
+		{
+			"executable_false",
+			args{dst: "executable", src: "executable_false"},
+			false,
+		},
+		{
+			"executable_false_false",
+			args{dst: "executable_false", src: "executable_false"},
+			false,
+		},
+		{
+			"executable_false_true",
+			args{dst: "executable_false", src: "executable_true"},
+			true,
+		},
+		{
+			"executable_true_false",
+			args{dst: "executable_true", src: "executable_false"},
+			false,
+		},
+		{
+			"executable_false_true",
+			args{dst: "executable_true", src: "executable_true"},
+			true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Destination file system
+			dstFs := afero.NewMemMapFs()
+			_ = afero.WriteFile(dstFs, "executable_false", []byte(""), 0666)
+			_ = afero.WriteFile(dstFs, "executable_true", []byte(""), 0777)
+
+			err := snc.Sync(tt.args.dst, dstFs, tt.args.src, srcFs)
+			assert.IsType(t, nil, err)
+
+			dstInfo, _ := dstFs.Stat(tt.args.dst)
+			assert.Equal(t, tt.wantExecutable, (dstInfo.Mode() & 0100) != 0)
+		})
+	}
+}

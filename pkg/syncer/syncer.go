@@ -169,7 +169,19 @@ func (snc *syncer) Sync(dst string, dstFs afero.Fs, src string, srcFs afero.Fs) 
 					return err
 				}
 			} else {
-				dstFile, err = snc.syncFile(dstFile, dstFs, srcFile, srcFs)
+				// Source file info
+				srcFileInfo, srcFileErr := srcFs.Stat(srcFile)
+
+				if srcFileErr != nil {
+					// Source file does not exist
+					if os.IsNotExist(srcFileErr) {
+						return &SourceNotExistError{srcFile}
+					} else {
+						return srcFileErr
+					}
+				}
+
+				dstFile, err = snc.syncFile(dstFile, dstFs, srcFile, srcFs, srcFileInfo)
 				if err != nil {
 					return err
 				}
@@ -201,12 +213,12 @@ func (snc *syncer) Sync(dst string, dstFs afero.Fs, src string, srcFs afero.Fs) 
 	/* File */
 	/* **** */
 
-	_, err := snc.syncFile(dst, dstFs, src, srcFs)
+	_, err := snc.syncFile(dst, dstFs, src, srcFs, srcInfo)
 
 	return err
 }
 
-func (snc *syncer) syncFile(dst string, dstFs afero.Fs, src string, srcFs afero.Fs) (string, error) {
+func (snc *syncer) syncFile(dst string, dstFs afero.Fs, src string, srcFs afero.Fs, srcInfo os.FileInfo) (string, error) {
 	snc.logger.WithFields(log.Fields{
 		"src": src,
 		"dst": dst,
@@ -250,6 +262,8 @@ func (snc *syncer) syncFile(dst string, dstFs afero.Fs, src string, srcFs afero.
 		}
 	}
 
+	srcExecutable := (srcInfo.Mode() & 0100) != 0
+
 	eq, err := snc.equal(dst, dstFs, dstInfo, dstErr, srcContent)
 	if err != nil {
 		return "", err
@@ -265,7 +279,14 @@ func (snc *syncer) syncFile(dst string, dstFs afero.Fs, src string, srcFs afero.
 			}
 		}
 
-		err := afero.WriteFile(dstFs, dst, srcContent, 0666)
+		var dstMode os.FileMode = 0666
+
+		// Check user executable permission bit
+		if srcExecutable {
+			dstMode = 0777
+		}
+
+		err := afero.WriteFile(dstFs, dst, srcContent, dstMode)
 		if err != nil {
 			return "", err
 		}
@@ -274,6 +295,24 @@ func (snc *syncer) syncFile(dst string, dstFs afero.Fs, src string, srcFs afero.
 			"src": src,
 			"dst": dst,
 		}).Info("File synced")
+	}
+
+	// Destination was already existing
+	if dstInfo != nil {
+		dstMode := dstInfo.Mode()
+
+		dstModeSync := dstMode &^ 0111
+
+		if srcExecutable {
+			dstModeSync = dstMode | 0111
+		}
+
+		if dstMode != dstModeSync {
+			err := dstFs.Chmod(dst, dstModeSync)
+			if err != nil {
+				return "", err
+			}
+		}
 	}
 
 	return dst, nil
