@@ -19,6 +19,10 @@ Requirements
 
 * Go 1.11+
 
+```
+sudo snap install --classic --channel=1.11/stable go
+```
+
 ## Update modules
 
 ```
